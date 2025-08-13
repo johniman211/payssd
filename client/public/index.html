@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="description" content="PaySSD - Secure payment gateway platform for South Sudan businesses. Accept MTN Mobile Money and Digicash payments with ease." />
+    <meta name="keywords" content="PaySSD, South Sudan, payment gateway, MTN Mobile Money, Digicash, Juba, payments, business" />
+    <meta name="author" content="PaySSD" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://payssd.com/" />
+    <meta property="og:title" content="PaySSD - Payment Gateway for South Sudan" />
+    <meta property="og:description" content="Secure payment gateway platform for South Sudan businesses. Accept MTN Mobile Money and Digicash payments with ease." />
+    <meta property="og:image" content="%PUBLIC_URL%/og-image.png" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://payssd.com/" />
+    <meta property="twitter:title" content="PaySSD - Payment Gateway for South Sudan" />
+    <meta property="twitter:description" content="Secure payment gateway platform for South Sudan businesses. Accept MTN Mobile Money and Digicash payments with ease." />
+    <meta property="twitter:image" content="%PUBLIC_URL%/twitter-image.png" />
+    
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    
+    <!-- Preconnect to external domains for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Inter font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <title>PaySSD - Payment Gateway for South Sudan</title>
+    
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "PaySSD",
+      "description": "Secure payment gateway platform for South Sudan businesses",
+      "url": "https://payssd.com",
+      "logo": "https://payssd.com/logo.png",
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "telephone": "+211-XXX-XXXX",
+        "contactType": "Customer Service",
+        "areaServed": "SS",
+        "availableLanguage": ["English", "Arabic"]
+      },
+      "address": {
+        "@type": "PostalAddress",
+        "addressCountry": "SS",
+        "addressLocality": "Juba"
+      },
+      "sameAs": [
+        "https://facebook.com/payssd",
+        "https://twitter.com/payssd",
+        "https://linkedin.com/company/payssd"
+      ]
+    }
+    </script>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+    
+    <!-- Loading fallback -->
+    <div id="loading-fallback" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f9fafb; z-index: 9999; align-items: center; justify-content: center; flex-direction: column;">
+      <div style="width: 40px; height: 40px; border: 3px solid #e5e7eb; border-top: 3px solid #2563eb; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+      <p style="margin-top: 16px; color: #6b7280; font-family: Inter, sans-serif;">Loading PaySSD...</p>
+    </div>
+    
+    <style>
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+    
+    <script>
+      // Show loading fallback if app takes too long to load
+      setTimeout(() => {
+        const root = document.getElementById('root');
+        const fallback = document.getElementById('loading-fallback');
+        if (root && !root.hasChildNodes() && fallback) {
+          fallback.style.display = 'flex';
+        }
+      }, 3000);
+    </script>
+  </body>
+</html>
