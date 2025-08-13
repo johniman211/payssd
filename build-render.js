@@ -36,16 +36,26 @@ try {
 }
 console.log('=== End Contents ===\n');
 
-// Verify client directory exists
-const clientDir = path.join(projectRoot, 'client');
+// Verify client directory exists - check both project root and src subdirectory
+let clientDir = path.join(projectRoot, 'client');
 if (!fs.existsSync(clientDir)) {
-    console.error('❌ Client directory not found at:', clientDir);
-    console.error('Available directories:', fs.readdirSync(projectRoot).filter(item => {
-        try {
-            return fs.statSync(path.join(projectRoot, item)).isDirectory();
-        } catch { return false; }
-    }));
-    process.exit(1);
+    // Try looking in src subdirectory
+    const srcClientDir = path.join(projectRoot, 'src', 'client');
+    if (fs.existsSync(srcClientDir)) {
+        clientDir = srcClientDir;
+        console.log('✅ Found client directory in src subdirectory:', clientDir);
+    } else {
+        console.error('❌ Client directory not found at:', clientDir);
+        console.error('❌ Also not found at:', srcClientDir);
+        console.error('Available directories:', fs.readdirSync(projectRoot).filter(item => {
+            try {
+                return fs.statSync(path.join(projectRoot, item)).isDirectory();
+            } catch { return false; }
+        }));
+        process.exit(1);
+    }
+} else {
+    console.log('✅ Found client directory at project root:', clientDir);
 }
 console.log('✅ Client directory found at:', clientDir);
 
