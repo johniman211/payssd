@@ -46,19 +46,6 @@ const CreatePaymentLinkPage = () => {
     setError('');
     setSuccess('');
 
-    // Frontend validation
-    if (!formData.allowCustomAmount && (!formData.amount || parseFloat(formData.amount) < 1)) {
-      setError('Amount must be at least 1');
-      setLoading(false);
-      return;
-    }
-
-    if (formData.description.length < 10) {
-      setError('Description must be at least 10 characters');
-      setLoading(false);
-      return;
-    }
-
     try {
       const payload = {
         ...formData,
@@ -68,11 +55,6 @@ const CreatePaymentLinkPage = () => {
         maxUses: formData.maxUses ? parseInt(formData.maxUses) : undefined,
         expiresAt: formData.expiresAt ? new Date(formData.expiresAt).toISOString() : undefined
       };
-
-      // For custom amounts, we need to set a default amount for backend validation
-      if (formData.allowCustomAmount && !payload.amount) {
-        payload.amount = 1; // Set minimum required amount for backend validation
-      }
 
       const { data } = await axios.post('/api/payments/create-link', payload);
 

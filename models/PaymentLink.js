@@ -32,8 +32,22 @@ const paymentLinkSchema = new mongoose.Schema({
   },
   amount: {
     type: Number,
-    required: true,
+    required: function() {
+      return !this.allowCustomAmount;
+    },
     min: 1
+  },
+  allowCustomAmount: {
+    type: Boolean,
+    default: false
+  },
+  minAmount: {
+    type: Number,
+    min: 0
+  },
+  maxAmount: {
+    type: Number,
+    min: 0
   },
   currency: {
     type: String,
