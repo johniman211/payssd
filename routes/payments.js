@@ -38,8 +38,21 @@ router.post('/create-link', auth, merchantAuth, kycVerified, [
     .isLength({ min: 10, max: 500 })
     .withMessage('Description must be between 10 and 500 characters'),
   body('amount')
+    .optional()
     .isFloat({ min: 1 })
     .withMessage('Amount must be at least 1'),
+  body('allowCustomAmount')
+    .optional()
+    .isBoolean()
+    .withMessage('Allow custom amount must be a boolean'),
+  body('minAmount')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Minimum amount must be at least 0'),
+  body('maxAmount')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Maximum amount must be at least 0'),
   body('currency')
     .optional()
     .isIn(['SSP', 'USD'])
@@ -70,6 +83,9 @@ router.post('/create-link', auth, merchantAuth, kycVerified, [
       title,
       description,
       amount,
+      allowCustomAmount = false,
+      minAmount,
+      maxAmount,
       currency = 'SSP',
       expiresAt,
       allowedPaymentMethods = ['mtn_momo', 'digicash'],
@@ -80,6 +96,21 @@ router.post('/create-link', auth, merchantAuth, kycVerified, [
       redirectUrls = {},
       webhookUrl
     } = req.body;
+
+    // Additional validation for custom amounts
+    if (!allowCustomAmount && (!amount || amount < 1)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Amount is required and must be at least 1 when custom amounts are not allowed'
+      });
+    }
+
+    if (allowCustomAmount && minAmount && maxAmount && minAmount >= maxAmount) {
+      return res.status(400).json({
+        success: false,
+        message: 'Minimum amount must be less than maximum amount'
+      });
+    }
 
     // Validate expiry date
     if (expiresAt && new Date(expiresAt) <= new Date()) {

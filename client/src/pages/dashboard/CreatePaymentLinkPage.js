@@ -46,6 +46,19 @@ const CreatePaymentLinkPage = () => {
     setError('');
     setSuccess('');
 
+    // Frontend validation
+    if (!formData.allowCustomAmount && (!formData.amount || parseFloat(formData.amount) < 1)) {
+      setError('Amount must be at least 1');
+      setLoading(false);
+      return;
+    }
+
+    if (formData.description.length < 10) {
+      setError('Description must be at least 10 characters');
+      setLoading(false);
+      return;
+    }
+
     try {
       const payload = {
         ...formData,
@@ -55,6 +68,11 @@ const CreatePaymentLinkPage = () => {
         maxUses: formData.maxUses ? parseInt(formData.maxUses) : undefined,
         expiresAt: formData.expiresAt ? new Date(formData.expiresAt).toISOString() : undefined
       };
+
+      // For custom amounts, we need to set a default amount for backend validation
+      if (formData.allowCustomAmount && !payload.amount) {
+        payload.amount = 1; // Set minimum required amount for backend validation
+      }
 
       const { data } = await axios.post('/api/payments/create-link', payload);
 
@@ -163,17 +181,23 @@ const CreatePaymentLinkPage = () => {
             </div>
             <div>
               <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                Description
+                Description *
               </label>
               <textarea
                 name="description"
                 id="description"
                 rows={3}
+                required
+                minLength={10}
+                maxLength={500}
                 value={formData.description}
                 onChange={handleInputChange}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="Describe what this payment is for..."
+                placeholder="Describe what this payment is for... (minimum 10 characters)"
               />
+              <p className="mt-1 text-xs text-gray-500">
+                {formData.description.length}/500 characters (minimum 10 required)
+              </p>
             </div>
           </div>
         </div>
