@@ -301,7 +301,7 @@ const Dashboard = () => {
               </div>
             </div>
           ) : (
-            <div className="overflow-hidden">
+            <div className="overflow-x-auto">
               <table className="table">
                 <thead className="table-header">
                   <tr>
