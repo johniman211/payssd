@@ -22,10 +22,29 @@ if (projectRoot.endsWith('/src') || projectRoot.endsWith('\\src')) {
 process.chdir(projectRoot);
 console.log('Changed to project root:', process.cwd());
 
+// Debug: List all files and directories in project root
+console.log('\n=== Project Root Contents ===');
+try {
+    const items = fs.readdirSync(projectRoot);
+    items.forEach(item => {
+        const itemPath = path.join(projectRoot, item);
+        const isDir = fs.statSync(itemPath).isDirectory();
+        console.log(`${isDir ? '[DIR]' : '[FILE]'} ${item}`);
+    });
+} catch (error) {
+    console.error('Error reading project root:', error.message);
+}
+console.log('=== End Contents ===\n');
+
 // Verify client directory exists
 const clientDir = path.join(projectRoot, 'client');
 if (!fs.existsSync(clientDir)) {
     console.error('❌ Client directory not found at:', clientDir);
+    console.error('Available directories:', fs.readdirSync(projectRoot).filter(item => {
+        try {
+            return fs.statSync(path.join(projectRoot, item)).isDirectory();
+        } catch { return false; }
+    }));
     process.exit(1);
 }
 console.log('✅ Client directory found at:', clientDir);
