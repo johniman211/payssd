@@ -75,9 +75,8 @@ dist
 
 # Gatsby files
 .cache/
-public
-# But don't ignore client/public directory (needed for React app)
-!client/public
+# Only ignore root-level public (Gatsby output), not nested 'public' dirs
+/public
 
 # Storybook build outputs
 .out
