@@ -5,7 +5,9 @@
 ### 1. Build Process
 - **Problem**: Client build files were not being generated during deployment
 - **Solution**: Updated `package.json` build script to install client dependencies and build the React app
-- **Change**: `"build": "npm run install-client && cd client && npm run build"`
+- **Changes**: 
+  - `"build": "npm run install-client && cd client && npm run build"`
+  - `"build-all": "npm run install-all && npm run build"`
 
 ### 2. Static File Serving
 - **Problem**: Server was looking for build files that didn't exist
@@ -36,9 +38,10 @@
    - **Node Version**: 22.16.0
 
 ### Option 2: Using render.yaml (Recommended)
-1. The `render.yaml` file is already configured
-2. Push your code to GitHub
-3. Render will automatically deploy using the configuration
+1. The `render.yaml` file is configured with `buildCommand: npm run build-all`
+2. This ensures both server and client dependencies are installed and the client is built during deployment
+3. Push your code to GitHub
+4. Render will automatically deploy using the configuration
 
 ## Environment Variables
 
