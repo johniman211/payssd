@@ -40,7 +40,12 @@ router.put('/profile', [
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('Last name must be between 2 and 50 characters'),
+  // Support both phoneNumber and phone from client
   body('phoneNumber')
+    .optional()
+    .matches(/^\+211[0-9]{8}$/)
+    .withMessage('Phone number must be a valid South Sudan number (+211XXXXXXXX)'),
+  body('phone')
     .optional()
     .matches(/^\+211[0-9]{8}$/)
     .withMessage('Phone number must be a valid South Sudan number (+211XXXXXXXX)'),
@@ -65,7 +70,10 @@ router.put('/profile', [
   body('address.state')
     .optional()
     .isIn(['Central Equatoria', 'Western Equatoria', 'Eastern Equatoria', 'Upper Nile', 'Unity', 'Warrap', 'Northern Bahr el Ghazal', 'Western Bahr el Ghazal', 'Lakes', 'Jonglei'])
-    .withMessage('Invalid state')
+    .withMessage('Invalid state'),
+  // Also accept flat city/address fields from client and validate minimally
+  body('city').optional().isString().trim().isLength({ min: 2 }).withMessage('City is required'),
+  body('address').optional().isString().trim().isLength({ min: 5 }).withMessage('Address is required')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -81,9 +89,11 @@ router.put('/profile', [
       firstName,
       lastName,
       phoneNumber,
+      phone,
       businessName,
       businessType,
-      address
+      address,
+      city
     } = req.body;
 
     const user = await User.findById(req.user.id);
@@ -91,18 +101,25 @@ router.put('/profile', [
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Ensure nested address exists
+    user.profile.address = user.profile.address || {};
+
     // Update profile fields
     if (firstName !== undefined) user.profile.firstName = firstName;
     if (lastName !== undefined) user.profile.lastName = lastName;
-    if (phoneNumber !== undefined) user.profile.phoneNumber = phoneNumber;
+    const finalPhone = phoneNumber !== undefined ? phoneNumber : (phone !== undefined ? phone : undefined);
+    if (finalPhone !== undefined) user.profile.phoneNumber = finalPhone;
     if (businessName !== undefined) user.profile.businessName = businessName;
     if (businessType !== undefined) user.profile.businessType = businessType;
     
-    if (address) {
+    // Map either nested address or flat fields
+    if (address && typeof address === 'object') {
       if (address.street !== undefined) user.profile.address.street = address.street;
       if (address.city !== undefined) user.profile.address.city = address.city;
       if (address.state !== undefined) user.profile.address.state = address.state;
     }
+    if (city !== undefined) user.profile.address.city = city;
+    if (typeof address === 'string') user.profile.address.street = address;
 
     user.updatedAt = new Date();
     await user.save();
@@ -124,66 +141,217 @@ router.put('/profile', [
   }
 });
 
-// Update user settings
-router.put('/settings', [
-  auth,
-  body('notifications.email')
-    .optional()
-    .isBoolean()
-    .withMessage('Email notification setting must be boolean'),
-  body('notifications.sms')
-    .optional()
-    .isBoolean()
-    .withMessage('SMS notification setting must be boolean'),
-  body('notifications.webhook')
-    .optional()
-    .isBoolean()
-    .withMessage('Webhook notification setting must be boolean'),
-  body('language')
-    .optional()
-    .isIn(['en', 'ar'])
-    .withMessage('Language must be either en or ar'),
-  body('timezone')
-    .optional()
-    .equals('Africa/Juba')
-    .withMessage('Timezone must be Africa/Juba'),
-  body('webhookUrl')
-    .optional()
-    .isURL()
-    .withMessage('Webhook URL must be a valid URL')
-], async (req, res) => {
+// Get user settings
+router.get('/settings', auth, async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
+    const user = await User.findById(req.user.id)
+      .select('settings apiKeys')
+      .lean();
+    
+    if (!user) {
+      return res.status(404).json({ 
         success: false,
-        message: 'Validation failed',
-        errors: errors.array()
+        message: 'User not found' 
       });
     }
 
-    const {
-      notifications,
-      language,
-      timezone,
-      webhookUrl
-    } = req.body;
+    const defaults = {
+      notifications: {
+        emailNotifications: true,
+        smsNotifications: true,
+        paymentReceived: true,
+        paymentFailed: true,
+        weeklyReports: true,
+        monthlyReports: true,
+        securityAlerts: true,
+        marketingEmails: false
+      },
+      preferences: {
+        language: 'en',
+        timezone: 'Africa/Juba',
+        currency: 'SSP',
+        theme: 'system',
+        dateFormat: 'DD/MM/YYYY',
+        numberFormat: 'en-SS'
+      },
+      security: {
+        twoFactorAuth: false,
+        loginNotifications: true,
+        sessionTimeout: 30,
+        allowMultipleSessions: false
+      },
+      api: {
+        webhookUrl: '',
+        webhookSecret: '',
+        apiKeyName: ''
+      }
+    };
 
+    const s = user.settings || {};
+    const notif = s.notifications || {};
+    const pref = s.preferences || {};
+    const sec = s.security || {};
+    const api = user.apiKeys || {};
+
+    const responseSettings = {
+      notifications: {
+        emailNotifications: notif.emailNotifications ?? notif.email ?? defaults.notifications.emailNotifications,
+        smsNotifications: notif.smsNotifications ?? notif.sms ?? defaults.notifications.smsNotifications,
+        paymentReceived: notif.paymentReceived ?? defaults.notifications.paymentReceived,
+        paymentFailed: notif.paymentFailed ?? defaults.notifications.paymentFailed,
+        weeklyReports: notif.weeklyReports ?? defaults.notifications.weeklyReports,
+        monthlyReports: notif.monthlyReports ?? defaults.notifications.monthlyReports,
+        securityAlerts: notif.securityAlerts ?? defaults.notifications.securityAlerts,
+        marketingEmails: notif.marketingEmails ?? defaults.notifications.marketingEmails
+      },
+      preferences: {
+        language: pref.language ?? s.language ?? defaults.preferences.language,
+        timezone: pref.timezone ?? s.timezone ?? defaults.preferences.timezone,
+        currency: pref.currency ?? defaults.preferences.currency,
+        theme: pref.theme ?? defaults.preferences.theme,
+        dateFormat: pref.dateFormat ?? defaults.preferences.dateFormat,
+        numberFormat: pref.numberFormat ?? defaults.preferences.numberFormat
+      },
+      security: {
+        twoFactorAuth: sec.twoFactorAuth ?? defaults.security.twoFactorAuth,
+        loginNotifications: sec.loginNotifications ?? defaults.security.loginNotifications,
+        sessionTimeout: sec.sessionTimeout ?? defaults.security.sessionTimeout,
+        allowMultipleSessions: sec.allowMultipleSessions ?? defaults.security.allowMultipleSessions
+      },
+      api: {
+        webhookUrl: api.webhookUrl || '',
+        webhookSecret: api.webhookSecret || '',
+        apiKeyName: api.apiKeyName || ''
+      }
+    };
+
+    res.json({
+      success: true,
+      settings: responseSettings
+    });
+
+  } catch (error) {
+    console.error('Get settings error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update user settings
+router.put('/settings', [auth], async (req, res) => {
+  try {
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Update settings
-    if (notifications) {
-      if (notifications.email !== undefined) user.settings.notifications.email = notifications.email;
-      if (notifications.sms !== undefined) user.settings.notifications.sms = notifications.sms;
-      if (notifications.webhook !== undefined) user.settings.notifications.webhook = notifications.webhook;
+    // Ensure nested structure exists for safe assignments
+    user.settings = user.settings || {};
+    user.settings.notifications = user.settings.notifications || {};
+    user.settings.preferences = user.settings.preferences || {};
+    user.settings.security = user.settings.security || {};
+    user.apiKeys = user.apiKeys || {};
+
+    const { 
+      section, 
+      settings: settingsData,
+      notifications,
+      language,
+      timezone,
+      webhookUrl 
+    } = req.body;
+
+    // Handle different payload formats from client
+    if (section && settingsData) {
+      // Client sends section-specific updates
+      if (section === 'notifications' && settingsData) {
+        // Map client notification settings to User model structure
+        if (settingsData.emailNotifications !== undefined) {
+          user.settings.notifications.emailNotifications = settingsData.emailNotifications;
+        }
+        if (settingsData.smsNotifications !== undefined) {
+          user.settings.notifications.smsNotifications = settingsData.smsNotifications;
+        }
+        if (settingsData.paymentReceived !== undefined) {
+          user.settings.notifications.paymentReceived = settingsData.paymentReceived;
+        }
+        if (settingsData.paymentFailed !== undefined) {
+          user.settings.notifications.paymentFailed = settingsData.paymentFailed;
+        }
+        if (settingsData.weeklyReports !== undefined) {
+          user.settings.notifications.weeklyReports = settingsData.weeklyReports;
+        }
+        if (settingsData.monthlyReports !== undefined) {
+          user.settings.notifications.monthlyReports = settingsData.monthlyReports;
+        }
+        if (settingsData.securityAlerts !== undefined) {
+          user.settings.notifications.securityAlerts = settingsData.securityAlerts;
+        }
+        if (settingsData.marketingEmails !== undefined) {
+          user.settings.notifications.marketingEmails = settingsData.marketingEmails;
+        }
+        // Backward compatibility
+        if (settingsData.email !== undefined) {
+          user.settings.notifications.emailNotifications = settingsData.email;
+        }
+        if (settingsData.sms !== undefined) {
+          user.settings.notifications.smsNotifications = settingsData.sms;
+        }
+      } else if (section === 'preferences' && settingsData) {
+        if (settingsData.language !== undefined) {
+          user.settings.preferences.language = settingsData.language;
+        }
+        if (settingsData.timezone !== undefined) {
+          user.settings.preferences.timezone = settingsData.timezone;
+        }
+        if (settingsData.currency !== undefined) {
+          user.settings.preferences.currency = settingsData.currency;
+        }
+        if (settingsData.theme !== undefined) {
+          user.settings.preferences.theme = settingsData.theme;
+        }
+        if (settingsData.dateFormat !== undefined) {
+          user.settings.preferences.dateFormat = settingsData.dateFormat;
+        }
+        if (settingsData.numberFormat !== undefined) {
+          user.settings.preferences.numberFormat = settingsData.numberFormat;
+        }
+      } else if (section === 'security' && settingsData) {
+        if (settingsData.twoFactorAuth !== undefined) {
+          user.settings.security.twoFactorAuth = settingsData.twoFactorAuth;
+        }
+        if (settingsData.loginNotifications !== undefined) {
+          user.settings.security.loginNotifications = settingsData.loginNotifications;
+        }
+        if (settingsData.sessionTimeout !== undefined) {
+          user.settings.security.sessionTimeout = settingsData.sessionTimeout;
+        }
+        if (settingsData.allowMultipleSessions !== undefined) {
+          user.settings.security.allowMultipleSessions = settingsData.allowMultipleSessions;
+        }
+      } else if (section === 'api' && settingsData) {
+        if (settingsData.webhookUrl !== undefined) {
+          user.apiKeys.webhookUrl = settingsData.webhookUrl;
+        }
+        if (settingsData.webhookSecret !== undefined) {
+          user.apiKeys.webhookSecret = settingsData.webhookSecret;
+        }
+        if (settingsData.apiKeyName !== undefined) {
+          user.apiKeys.apiKeyName = settingsData.apiKeyName;
+        }
+      }
+    } else {
+      // Handle direct field updates (legacy format)
+      if (notifications) {
+        if (notifications.email !== undefined) user.settings.notifications.emailNotifications = notifications.email;
+        if (notifications.sms !== undefined) user.settings.notifications.smsNotifications = notifications.sms;
+      }
+      
+      if (language !== undefined) user.settings.preferences.language = language;
+      if (timezone !== undefined) user.settings.preferences.timezone = timezone;
+      if (webhookUrl !== undefined) {
+        user.apiKeys.webhookUrl = webhookUrl;
+      }
     }
-    
-    if (language !== undefined) user.settings.language = language;
-    if (timezone !== undefined) user.settings.timezone = timezone;
-    if (webhookUrl !== undefined) user.settings.webhookUrl = webhookUrl;
 
     user.updatedAt = new Date();
     await user.save();

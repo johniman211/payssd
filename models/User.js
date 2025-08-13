@@ -127,31 +127,106 @@ const userSchema = new mongoose.Schema({
     publicKey: String,
     secretKey: String,
     webhookUrl: String,
-    webhookSecret: String
+    webhookSecret: String,
+    apiKeyName: String
   },
   
   // Settings
   settings: {
     notifications: {
-      email: {
+      emailNotifications: {
         type: Boolean,
         default: true
       },
-      sms: {
+      smsNotifications: {
         type: Boolean,
         default: true
+      },
+      paymentReceived: {
+        type: Boolean,
+        default: true
+      },
+      paymentFailed: {
+        type: Boolean,
+        default: true
+      },
+      weeklyReports: {
+        type: Boolean,
+        default: true
+      },
+      monthlyReports: {
+        type: Boolean,
+        default: true
+      },
+      securityAlerts: {
+        type: Boolean,
+        default: true
+      },
+      marketingEmails: {
+        type: Boolean,
+        default: false
       }
     },
-    language: {
-      type: String,
-      enum: ['en', 'ar'],
-      default: 'en'
+    preferences: {
+      language: {
+        type: String,
+        enum: ['en', 'ar'],
+        default: 'en'
+      },
+      timezone: {
+        type: String,
+        default: 'Africa/Juba'
+      },
+      currency: {
+        type: String,
+        default: 'SSP'
+      },
+      theme: {
+        type: String,
+        enum: ['light', 'dark', 'system'],
+        default: 'system'
+      },
+      dateFormat: {
+        type: String,
+        default: 'DD/MM/YYYY'
+      },
+      numberFormat: {
+        type: String,
+        default: 'en-SS'
+      }
     },
-    timezone: {
-      type: String,
-      default: 'Africa/Juba'
+    security: {
+      twoFactorAuth: {
+        type: Boolean,
+        default: false
+      },
+      loginNotifications: {
+        type: Boolean,
+        default: true
+      },
+      sessionTimeout: {
+        type: Number,
+        default: 30
+      },
+      allowMultipleSessions: {
+        type: Boolean,
+        default: false
+      }
     }
   },
+  
+  // Admin Notes
+  adminNotes: [{
+    note: String,
+    addedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    addedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   
   // Metadata
   lastLogin: Date,

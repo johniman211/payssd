@@ -598,6 +598,220 @@ router.put('/users/:userId/status', [
   }
 });
 
+// Activate user (admin only)
+router.put('/users/:userId/activate', [
+  auth,
+  adminAuth,
+  body('reason')
+    .optional()
+    .trim()
+    .isLength({ min: 5, max: 500 })
+    .withMessage('Reason must be between 5 and 500 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { userId } = req.params;
+    const { reason } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (user.role === 'admin') {
+      return res.status(400).json({ success: false, message: 'Cannot modify admin user status' });
+    }
+
+    user.isActive = true;
+    user.updatedAt = new Date();
+
+    if (reason) {
+      user.adminNotes = user.adminNotes || [];
+      user.adminNotes.push({
+        note: `Status changed to active: ${reason}`,
+        addedBy: req.user.id,
+        addedAt: new Date()
+      });
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'User activated successfully',
+      user: { _id: user._id, email: user.email, isActive: user.isActive }
+    });
+
+  } catch (error) {
+    console.error('Activate user error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Deactivate user (admin only)
+router.put('/users/:userId/deactivate', [
+  auth,
+  adminAuth,
+  body('reason')
+    .optional()
+    .trim()
+    .isLength({ min: 5, max: 500 })
+    .withMessage('Reason must be between 5 and 500 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { userId } = req.params;
+    const { reason } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (user.role === 'admin') {
+      return res.status(400).json({ success: false, message: 'Cannot modify admin user status' });
+    }
+
+    user.isActive = false;
+    user.updatedAt = new Date();
+
+    if (reason) {
+      user.adminNotes = user.adminNotes || [];
+      user.adminNotes.push({
+        note: `Status changed to inactive: ${reason}`,
+        addedBy: req.user.id,
+        addedAt: new Date()
+      });
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'User deactivated successfully',
+      user: { _id: user._id, email: user.email, isActive: user.isActive }
+    });
+
+  } catch (error) {
+    console.error('Deactivate user error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Delete user (admin only)
+router.delete('/users/:userId', [
+  auth,
+  adminAuth,
+  // Make confirmation optional to align with client implementation
+  body('confirmation')
+    .optional()
+    .custom(val => val === undefined || val === 'DELETE')
+    .withMessage('Confirmation must be DELETE when provided'),
+  body('reason')
+    .optional()
+    .trim()
+    .isLength({ min: 5, max: 500 })
+    .withMessage('Reason must be between 5 and 500 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { userId } = req.params;
+    // Axios.delete sends body as config.data; ensure we read from either body or query/header if needed
+    const reason = (req.body && req.body.reason) || req.query.reason || undefined;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (user.role === 'admin') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete admin users'
+      });
+    }
+
+    // Check if user has pending transactions
+    const Transaction = require('../models/Transaction');
+    const pendingTransactions = await Transaction.countDocuments({
+      merchant: userId,
+      status: { $in: ['pending', 'processing'] }
+    });
+
+    if (pendingTransactions > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete user with pending transactions. Please wait for all transactions to complete.'
+      });
+    }
+
+    // Check if user has remaining balance
+    if (user.balance.available > 0 || user.balance.pending > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete user with remaining balance. Please process payouts first.'
+      });
+    }
+
+    // Instead of hard delete, deactivate and anonymize the user to preserve transaction history
+    user.isActive = false;
+    user.email = `deleted_${Date.now()}_${user.email}`;
+    user.profile.firstName = 'Deleted';
+    user.profile.lastName = 'User';
+    user.profile.phoneNumber = 'deleted';
+    user.profile.businessName = 'Deleted Business';
+    user.password = 'deleted_password_' + Date.now();
+    user.apiKeys = undefined;
+    user.updatedAt = new Date();
+    
+    // Add admin note
+    user.adminNotes = user.adminNotes || [];
+    user.adminNotes.push({
+      note: `User deleted by admin: ${reason || 'No reason provided'}`,
+      addedBy: req.user.id,
+      addedAt: new Date()
+    });
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'User has been successfully deleted and anonymized'
+    });
+
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get all transactions (admin view)
 router.get('/transactions', [
   auth,

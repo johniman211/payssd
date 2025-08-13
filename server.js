@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 const PaymentLink = require('./models/PaymentLink');
 
@@ -90,7 +91,19 @@ app.get('/api/health', (req, res) => {
 app.get('*', (req, res) => {
   // Only serve React app for non-API routes
   if (!req.path.startsWith('/api/')) {
-    res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
+    const indexPath = path.join(__dirname, 'client/build', 'index.html');
+    
+    // Check if build file exists
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      // Fallback response if build files don't exist
+      res.status(503).json({ 
+        success: false,
+        message: 'Application is being deployed. Please try again in a few minutes.',
+        error: 'Build files not found'
+      });
+    }
   } else {
     res.status(404).json({ message: 'API route not found' });
   }

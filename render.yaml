@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: payssd
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        value: mongodb+srv://payssd:%2B211JOHNNINNI.com%2Fshameless@payssd.qrniazf.mongodb.net/payssd?retryWrites=true&w=majority&appName=PaySSD
+      - key: JWT_SECRET
+        value: a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12345678
+      - key: CLIENT_URL
+        value: https://payssd.onrender.com
+      - key: EMAIL_HOST
+        value: smtp-relay.brevo.com
+      - key: EMAIL_PORT
+        value: 587
+      - key: EMAIL_USER
+        value: 9151d2001@smtp-brevo.com
+      - key: EMAIL_PASS
+        value: a873ALqD2OjwdyT5
+      - key: EMAIL_FROM
+        value: PaySSD <support@payssd.com>
+      - key: ADMIN_EMAIL
+        value: admin@payssd.com
+      - key: ADMIN_PASSWORD
+        value: SuperSecureAdmin2024!@
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 900000
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: 100
+      - key: MAX_FILE_SIZE
+        value: 5242880
+      - key: UPLOAD_PATH
+        value: ./uploads
+    healthCheckPath: /api/health
