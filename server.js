@@ -87,6 +87,42 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'PaySSD API is running' });
 });
 
+// Readiness probe: verifies DB connectivity and client build presence
+app.get('/api/ready', async (req, res) => {
+  try {
+    // DB connectivity: use mongoose connection state
+    // 1 = connected, 2 = connecting. We accept connected; reject others
+    const connState = mongoose.connection.readyState;
+    const dbReady = connState === 1;
+
+    // Client build presence
+    const indexPath = path.join(__dirname, 'client', 'build', 'index.html');
+    const hasClientBuild = fs.existsSync(indexPath);
+
+    const ready = dbReady && hasClientBuild;
+
+    if (!ready) {
+      return res.status(503).json({
+        success: false,
+        ready,
+        dbReady,
+        hasClientBuild,
+        message: 'Service not ready',
+      });
+    }
+
+    return res.json({
+      success: true,
+      ready: true,
+      dbReady,
+      hasClientBuild,
+      message: 'Service is ready',
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: 'Readiness check failed', details: err.message });
+  }
+});
+
 // Serve React app for all non-API routes
 app.get('*', (req, res) => {
   // Only serve React app for non-API routes

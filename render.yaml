@@ -12,7 +12,15 @@ services:
         value: YOUR_PRODUCTION_MONGODB_URI
       - key: JWT_SECRET
         value: YOUR_JWT_SECRET
+      - key: SESSION_SECRET
+        value: YOUR_SESSION_SECRET
+      - key: ENCRYPTION_KEY
+        value: YOUR_32_CHAR_ENCRYPTION_KEY
       - key: CLIENT_URL
+        value: https://payssd.onrender.com
+      - key: REACT_APP_API_URL
+        value: https://payssd.onrender.com
+      - key: APP_URL
         value: https://payssd.onrender.com
       - key: EMAIL_HOST
         value: smtp-relay.brevo.com
@@ -24,6 +32,8 @@ services:
         value: YOUR_EMAIL_PASSWORD
       - key: EMAIL_FROM
         value: PaySSD <support@payssd.com>
+      - key: SUPPORT_EMAIL
+        value: support@payssd.com
       - key: ADMIN_EMAIL
         value: YOUR_ADMIN_EMAIL
       - key: ADMIN_PASSWORD
@@ -38,4 +48,4 @@ services:
         value: ./uploads
       - key: PORT
         value: 10000
-    healthCheckPath: /api/health
+    healthCheckPath: /api/ready
