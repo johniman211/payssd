@@ -9,9 +9,9 @@ services:
       - key: NODE_ENV
         value: production
       - key: MONGODB_URI
-        value: mongodb+srv://payssd:%2B211JOHNNINNI.com%2Fshameless@payssd.qrniazf.mongodb.net/payssd?retryWrites=true&w=majority&appName=PaySSD
+        value: YOUR_PRODUCTION_MONGODB_URI
       - key: JWT_SECRET
-        value: a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12345678
+        value: YOUR_JWT_SECRET
       - key: CLIENT_URL
         value: https://payssd.onrender.com
       - key: EMAIL_HOST
@@ -19,15 +19,15 @@ services:
       - key: EMAIL_PORT
         value: 587
       - key: EMAIL_USER
-        value: 9151d2001@smtp-brevo.com
+        value: YOUR_EMAIL_USER
       - key: EMAIL_PASS
-        value: a873ALqD2OjwdyT5
+        value: YOUR_EMAIL_PASSWORD
       - key: EMAIL_FROM
         value: PaySSD <support@payssd.com>
       - key: ADMIN_EMAIL
-        value: admin@payssd.com
+        value: YOUR_ADMIN_EMAIL
       - key: ADMIN_PASSWORD
-        value: SuperSecureAdmin2024!@
+        value: YOUR_ADMIN_PASSWORD
       - key: RATE_LIMIT_WINDOW_MS
         value: 900000
       - key: RATE_LIMIT_MAX_REQUESTS
