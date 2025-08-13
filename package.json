@@ -1,0 +1,58 @@
+{
+  "name": "payssd",
+  "version": "1.0.0",
+  "description": "PaySSD - Secure Payment Gateway Platform for South Sudan",
+  "main": "server.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "nodemon server.js",
+    "client": "cd client && npm start",
+    "build": "cd client && npm run build",
+    "start": "node server.js",
+    "start:prod": "NODE_ENV=production node server.js",
+    "pm2:start": "pm2 start ecosystem.config.js --env production",
+    "pm2:stop": "pm2 stop ecosystem.config.js",
+    "pm2:restart": "pm2 restart ecosystem.config.js",
+    "pm2:delete": "pm2 delete ecosystem.config.js",
+    "install-client": "cd client && npm install",
+    "install-all": "npm install && cd client && npm install",
+    "build-all": "npm run install-all && npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "echo \"Linting not configured\" && exit 0",
+    "security-audit": "npm audit && cd client && npm audit",
+    "security-check": "node scripts/security-check.js",
+    "health-check": "node scripts/health-check.js",
+    "pre-deploy": "npm run security-check && npm run health-check && npm run build"
+  },
+  "dependencies": {
+    "axios": "^1.5.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^6.10.0",
+    "express-validator": "^7.0.1",
+    "helmet": "^7.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "lucide-react": "^0.539.0",
+    "moment": "^2.29.4",
+    "mongoose": "^7.5.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.4",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0",
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "payment",
+    "gateway",
+    "south-sudan",
+    "mobile-money",
+    "mtn",
+    "digicash"
+  ],
+  "author": "PaySSD Team",
+  "license": "MIT"
+}

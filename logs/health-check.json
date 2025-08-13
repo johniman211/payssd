@@ -1,0 +1,184 @@
+{
+  "timestamp": "2025-08-09T18:36:19.732Z",
+  "healthy": true,
+  "results": [
+    {
+      "service": "ENV",
+      "status": "PASS",
+      "message": "MONGODB_URI is set",
+      "details": null,
+      "timestamp": "2025-08-09T18:36:17.891Z"
+    },
+    {
+      "service": "ENV",
+      "status": "PASS",
+      "message": "JWT_SECRET is set",
+      "details": null,
+      "timestamp": "2025-08-09T18:36:17.892Z"
+    },
+    {
+      "service": "ENV",
+      "status": "PASS",
+      "message": "CLIENT_URL is set",
+      "details": null,
+      "timestamp": "2025-08-09T18:36:17.892Z"
+    },
+    {
+      "service": "ENV",
+      "status": "PASS",
+      "message": "PORT is set",
+      "details": null,
+      "timestamp": "2025-08-09T18:36:17.892Z"
+    },
+    {
+      "service": "ENV",
+      "status": "PASS",
+      "message": "EMAIL_USER is configured",
+      "details": null,
+      "timestamp": "2025-08-09T18:36:17.892Z"
+    },
+    {
+      "service": "ENV",
+      "status": "PASS",
+      "message": "EMAIL_PASS is configured",
+      "details": null,
+      "timestamp": "2025-08-09T18:36:17.892Z"
+    },
+    {
+      "service": "ENV",
+      "status": "PASS",
+      "message": "SMS_API_KEY is configured",
+      "details": null,
+      "timestamp": "2025-08-09T18:36:17.892Z"
+    },
+    {
+      "service": "ENV",
+      "status": "PASS",
+      "message": "MTN_API_KEY is configured",
+      "details": null,
+      "timestamp": "2025-08-09T18:36:17.892Z"
+    },
+    {
+      "service": "ENV",
+      "status": "PASS",
+      "message": "DIGICASH_API_KEY is configured",
+      "details": null,
+      "timestamp": "2025-08-09T18:36:17.892Z"
+    },
+    {
+      "service": "FILESYSTEM",
+      "status": "PASS",
+      "message": "Directory uploads exists",
+      "details": null,
+      "timestamp": "2025-08-09T18:36:17.893Z"
+    },
+    {
+      "service": "FILESYSTEM",
+      "status": "PASS",
+      "message": "Directory uploads/kyc exists",
+      "details": null,
+      "timestamp": "2025-08-09T18:36:17.893Z"
+    },
+    {
+      "service": "FILESYSTEM",
+      "status": "PASS",
+      "message": "Directory logs exists",
+      "details": null,
+      "timestamp": "2025-08-09T18:36:17.893Z"
+    },
+    {
+      "service": "FILESYSTEM",
+      "status": "PASS",
+      "message": "File server.js exists",
+      "details": null,
+      "timestamp": "2025-08-09T18:36:17.894Z"
+    },
+    {
+      "service": "FILESYSTEM",
+      "status": "PASS",
+      "message": "File package.json exists",
+      "details": null,
+      "timestamp": "2025-08-09T18:36:17.894Z"
+    },
+    {
+      "service": "FILESYSTEM",
+      "status": "PASS",
+      "message": "File .env exists",
+      "details": null,
+      "timestamp": "2025-08-09T18:36:17.894Z"
+    },
+    {
+      "service": "FILESYSTEM",
+      "status": "PASS",
+      "message": "File ecosystem.config.js exists",
+      "details": null,
+      "timestamp": "2025-08-09T18:36:17.894Z"
+    },
+    {
+      "service": "SYSTEM",
+      "status": "PASS",
+      "message": "File system accessible",
+      "details": null,
+      "timestamp": "2025-08-09T18:36:17.895Z"
+    },
+    {
+      "service": "DATABASE",
+      "status": "PASS",
+      "message": "MongoDB connection successful",
+      "details": {
+        "uri": "mongodb://localhost:27017/payssd",
+        "ping": {
+          "ok": 1
+        }
+      },
+      "timestamp": "2025-08-09T18:36:17.961Z"
+    },
+    {
+      "service": "API",
+      "status": "PASS",
+      "message": "Health check endpoint responding correctly",
+      "details": {
+        "url": "http://localhost:3000/api/health",
+        "status": 200,
+        "method": "GET"
+      },
+      "timestamp": "2025-08-09T18:36:18.025Z"
+    },
+    {
+      "service": "API",
+      "status": "PASS",
+      "message": "User registration responding correctly",
+      "details": {
+        "url": "http://localhost:3000/api/auth/register",
+        "status": 400,
+        "method": "POST"
+      },
+      "timestamp": "2025-08-09T18:36:18.035Z"
+    },
+    {
+      "service": "API",
+      "status": "PASS",
+      "message": "Protected route responding correctly",
+      "details": {
+        "url": "http://localhost:3000/api/users/profile",
+        "status": 401,
+        "method": "GET"
+      },
+      "timestamp": "2025-08-09T18:36:18.043Z"
+    },
+    {
+      "service": "EXTERNAL",
+      "status": "PASS",
+      "message": "Google DNS reachable",
+      "details": null,
+      "timestamp": "2025-08-09T18:36:18.831Z"
+    },
+    {
+      "service": "EXTERNAL",
+      "status": "PASS",
+      "message": "Internet Connectivity reachable",
+      "details": null,
+      "timestamp": "2025-08-09T18:36:19.713Z"
+    }
+  ]
+}
