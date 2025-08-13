@@ -3,7 +3,7 @@ services:
     name: payssd
     env: node
     plan: free
-    buildCommand: npm run build-all
+    buildCommand: npm install && cd client && npm install && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
