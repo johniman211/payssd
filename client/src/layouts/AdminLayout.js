@@ -83,8 +83,8 @@ const AdminLayout = ({ children }) => {
       <Navbar />
       <div className="flex">
         <Sidebar isAdmin={true} />
-        <main className="flex-1 ml-64 pt-20 p-6">
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white/80 supports-[backdrop-filter]:bg-white/60 dark:bg-dark-card/60 backdrop-blur rounded-2xl shadow-elevated border border-gray-200 dark:border-dark-border p-6">
+        <main className="flex-1 lg:ml-64 pt-20 p-3 sm:p-4 lg:p-6">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="bg-white/80 supports-[backdrop-filter]:bg-white/60 dark:bg-dark-card/60 backdrop-blur rounded-2xl shadow-elevated border border-gray-200 dark:border-dark-border p-3 sm:p-4 lg:p-6">
             {children}
           </motion.div>
         </main>

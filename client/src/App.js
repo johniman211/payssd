@@ -174,7 +174,7 @@ const DashboardLayout = ({ children }) => {
       <Navbar />
       <div className="flex pt-16">
         <Sidebar isAdmin={isAdmin} />
-        <main className="flex-1 ml-64 transition-all duration-300">
+        <main className="flex-1 lg:ml-64 transition-all duration-300">
           <div className="p-6 lg:p-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
