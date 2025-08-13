@@ -10,7 +10,15 @@ console.log('Current working directory:', process.cwd());
 console.log('Script location:', __dirname);
 
 // Ensure we're in the project root
-const projectRoot = __dirname;
+// Handle both local development and Render deployment paths
+let projectRoot = __dirname;
+
+// If we're in a 'src' subdirectory (Render deployment), go up one level
+if (projectRoot.endsWith('/src') || projectRoot.endsWith('\\src')) {
+    projectRoot = path.dirname(projectRoot);
+    console.log('Detected src subdirectory, moving to parent:', projectRoot);
+}
+
 process.chdir(projectRoot);
 console.log('Changed to project root:', process.cwd());
 
