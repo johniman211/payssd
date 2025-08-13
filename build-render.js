@@ -59,10 +59,52 @@ if (!fs.existsSync(clientDir)) {
 }
 console.log('✅ Client directory found at:', clientDir);
 
+// Debug: List client directory contents
+console.log('\n=== Client Directory Contents ===');
+try {
+    const clientItems = fs.readdirSync(clientDir);
+    clientItems.forEach(item => {
+        const itemPath = path.join(clientDir, item);
+        const isDir = fs.statSync(itemPath).isDirectory();
+        console.log(`${isDir ? '[DIR]' : '[FILE]'} ${item}`);
+        
+        // If it's the public directory, also list its contents
+        if (isDir && item === 'public') {
+            console.log('  === Public Directory Contents ===');
+            try {
+                const publicItems = fs.readdirSync(itemPath);
+                publicItems.forEach(publicItem => {
+                    console.log(`  [FILE] ${publicItem}`);
+                });
+            } catch (error) {
+                console.error('  Error reading public directory:', error.message);
+            }
+            console.log('  === End Public Contents ===');
+        }
+    });
+} catch (error) {
+    console.error('Error reading client directory:', error.message);
+}
+console.log('=== End Client Contents ===\n');
+
 // Verify client/public/index.html exists
 const indexPath = path.join(clientDir, 'public', 'index.html');
 if (!fs.existsSync(indexPath)) {
     console.error('❌ index.html not found at:', indexPath);
+    
+    // Check if public directory exists
+    const publicDir = path.join(clientDir, 'public');
+    if (!fs.existsSync(publicDir)) {
+        console.error('❌ Public directory not found at:', publicDir);
+        console.error('Available directories in client:', fs.readdirSync(clientDir).filter(item => {
+            try {
+                return fs.statSync(path.join(clientDir, item)).isDirectory();
+            } catch { return false; }
+        }));
+    } else {
+        console.error('❌ Public directory exists but index.html is missing');
+        console.error('Files in public directory:', fs.readdirSync(publicDir));
+    }
     process.exit(1);
 }
 console.log('✅ index.html found at:', indexPath);
