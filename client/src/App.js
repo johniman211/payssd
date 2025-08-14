@@ -169,12 +169,20 @@ const PublicRoute = ({ children }) => {
 const DashboardLayout = ({ children }) => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = React.useState(false);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-dark-bg transition-colors duration-300">
-      <Navbar />
+      <Navbar 
+        onMobileMenuToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+        isMobileSidebarOpen={isMobileSidebarOpen}
+      />
       <div className="flex pt-16">
-        <Sidebar isAdmin={isAdmin} />
+        <Sidebar 
+          isAdmin={isAdmin} 
+          isMobileOpen={isMobileSidebarOpen}
+          onMobileClose={() => setIsMobileSidebarOpen(false)}
+        />
         <main className="flex-1 lg:ml-64 transition-all duration-300">
           <div className="p-6 lg:p-8">
             <motion.div

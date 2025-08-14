@@ -13,7 +13,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '../ui/ThemeToggle';
 
-const Navbar = () => {
+const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
   const { user, logout, isAdmin } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -193,24 +193,42 @@ const Navbar = () => {
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden flex items-center">
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white p-2"
-            >
-              {isMenuOpen ? (
-                <XMarkIcon className="h-6 w-6" />
-              ) : (
-                <Bars3Icon className="h-6 w-6" />
-              )}
-            </button>
+          <div className="md:hidden flex items-center space-x-2">
+            {/* Sidebar toggle for dashboard pages */}
+            {isDashboard && (
+              <button
+                onClick={onMobileMenuToggle}
+                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white p-2 lg:hidden"
+                aria-label="Toggle sidebar"
+              >
+                {isMobileSidebarOpen ? (
+                  <XMarkIcon className="h-6 w-6" />
+                ) : (
+                  <Bars3Icon className="h-6 w-6" />
+                )}
+              </button>
+            )}
+            
+            {/* Regular mobile menu for public pages */}
+            {!isDashboard && (
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white p-2"
+              >
+                {isMenuOpen ? (
+                  <XMarkIcon className="h-6 w-6" />
+                ) : (
+                  <Bars3Icon className="h-6 w-6" />
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile menu - only for non-dashboard pages */}
       <AnimatePresence>
-        {isMenuOpen && (
+        {isMenuOpen && !isDashboard && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}

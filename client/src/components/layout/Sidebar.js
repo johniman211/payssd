@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -29,9 +29,16 @@ import {
 } from '@heroicons/react/24/solid';
 import { CheckCircleIcon, ClockIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
-const Sidebar = ({ isAdmin = false }) => {
+const Sidebar = ({ isAdmin = false, isMobileOpen = false, onMobileClose }) => {
   const location = useLocation();
   const { user } = useAuth();
+
+  // Close mobile sidebar when route changes
+  useEffect(() => {
+    if (isMobileOpen && onMobileClose) {
+      onMobileClose();
+    }
+  }, [location.pathname]);
 
   const merchantNavItems = [
     {
@@ -271,7 +278,8 @@ const Sidebar = ({ isAdmin = false }) => {
       </div>
     </div>
     {/* Mobile/Tablet Sidebar */}
-    <div className="lg:hidden w-64 bg-white dark:bg-dark-card shadow-elevated h-screen fixed left-0 top-16 border-r border-gray-200 dark:border-dark-border overflow-y-auto transition-colors">
+    {isMobileOpen && (
+      <div className="lg:hidden w-64 bg-white dark:bg-dark-card shadow-elevated h-screen fixed left-0 top-16 border-r border-gray-200 dark:border-dark-border overflow-y-auto transition-colors z-40">
        <div className="p-6">
         {/* User Info */}
         <div className="mb-8">
@@ -338,7 +346,16 @@ const Sidebar = ({ isAdmin = false }) => {
         </nav>
       </div>
     </div>
-+   </>
+    )}
+    
+    {/* Mobile Sidebar Overlay */}
+    {isMobileOpen && (
+      <div 
+        className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30 top-16"
+        onClick={onMobileClose}
+      />
+    )}
+    </>
    );
 };
 
