@@ -4,18 +4,23 @@
   "description": "Secure payment gateway platform for South Sudan businesses. Accept MTN Mobile Money and Digicash payments with ease.",
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "favicon.svg",
+      "sizes": "32x32",
+      "type": "image/svg+xml"
     },
     {
-      "src": "logo192.png",
-      "type": "image/png",
+      "src": "favicon-16x16.svg",
+      "sizes": "16x16",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "icon-192.svg",
+      "type": "image/svg+xml",
       "sizes": "192x192"
     },
     {
-      "src": "logo512.png",
-      "type": "image/png",
+      "src": "icon-512.svg",
+      "type": "image/svg+xml",
       "sizes": "512x512"
     }
   ],
