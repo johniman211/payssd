@@ -17,11 +17,11 @@ services:
       - key: ENCRYPTION_KEY
         value: YOUR_32_CHAR_ENCRYPTION_KEY
       - key: CLIENT_URL
-        value: https://payssd.onrender.com
+        value: https://payssd.com
       - key: REACT_APP_API_URL
-        value: https://payssd.onrender.com
+        value: https://payssd.com
       - key: APP_URL
-        value: https://payssd.onrender.com
+        value: https://payssd.com
       - key: EMAIL_HOST
         value: smtp-relay.brevo.com
       - key: EMAIL_PORT

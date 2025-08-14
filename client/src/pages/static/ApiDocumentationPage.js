@@ -101,7 +101,7 @@ const response = await fetch('/api/payments/create-link', {
 
 const data = await response.json();`,
     curl: `# Create a payment link
-curl -X POST https://api.payssd.com/api/payments/create-link \
+curl -X POST https://payssd.com/api/payments/create-link \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_TOKEN" \
   -d '{
@@ -114,7 +114,7 @@ curl -X POST https://api.payssd.com/api/payments/create-link \
     python: `import requests
 
 # Create a payment link
-url = "https://api.payssd.com/api/payments/create-link"
+url = "https://payssd.com/api/payments/create-link"
 headers = {
     "Content-Type": "application/json",
     "Authorization": "Bearer YOUR_API_TOKEN"
@@ -153,7 +153,7 @@ result = response.json()`
             </p>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Base URL</h3>
             <code className="bg-gray-100 px-3 py-1 rounded text-sm">
-              https://api.payssd.com
+              https://payssd.com
             </code>
             <h3 className="text-lg font-semibold text-gray-900 mb-2 mt-4">Authentication</h3>
             <p className="text-gray-600 mb-2">

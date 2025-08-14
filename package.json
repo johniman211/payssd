@@ -23,7 +23,9 @@
     "security-audit": "npm audit && cd client && npm audit",
     "security-check": "node scripts/security-check.js",
     "health-check": "node scripts/health-check.js",
-    "pre-deploy": "npm run security-check && npm run health-check && npm run build"
+    "check-custom-domain": "node scripts/deploy-custom-domain.js",
+    "pre-deploy": "npm run security-check && npm run health-check && npm run build",
+    "deploy-custom-domain": "npm run check-custom-domain && npm run build"
   },
   "dependencies": {
     "axios": "^1.5.0",

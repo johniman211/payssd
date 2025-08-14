@@ -104,7 +104,7 @@ const IntegrationGuidePage = () => {
             <h4 className="font-semibold text-gray-900 mb-2">Example: Create a Payment Link</h4>
             <div className="relative">
               <pre className="bg-gray-900 text-gray-100 p-4 rounded text-sm overflow-x-auto">
-                <code>{`const response = await fetch('https://api.payssd.com/api/payments/create-link', {
+                <code>{`const response = await fetch('https://payssd.com/api/payments/create-link', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -123,7 +123,7 @@ const { link } = await response.json();
 console.log('Payment URL:', link.url);`}</code>
               </pre>
               <button
-                onClick={() => copyToClipboard(`const response = await fetch('https://api.payssd.com/api/payments/create-link', {
+                onClick={() => copyToClipboard(`const response = await fetch('https://payssd.com/api/payments/create-link', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -231,7 +231,7 @@ console.log('Payment URL:', link.url);`, 'create-link')}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="font-semibold text-blue-900 mb-2">Sandbox Environment</h4>
             <p className="text-blue-800 text-sm mb-2">
-              Base URL: <code className="bg-blue-100 px-2 py-1 rounded">https://sandbox-api.payssd.com</code>
+              Base URL: <code className="bg-blue-100 px-2 py-1 rounded">https://payssd.com</code>
             </p>
             <p className="text-blue-800 text-sm">
               Use test API keys from your dashboard's sandbox section.

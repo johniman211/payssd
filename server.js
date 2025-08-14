@@ -45,6 +45,29 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+// Custom domain redirect middleware (for production)
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    const host = req.get('host');
+    const protocol = req.get('x-forwarded-proto') || req.protocol;
+    
+    // Redirect from Render domain to custom domain
+    if (host && host.includes('onrender.com')) {
+      const customDomain = process.env.APP_URL || 'https://payssd.com';
+      const redirectUrl = `${customDomain}${req.originalUrl}`;
+      return res.redirect(301, redirectUrl);
+    }
+    
+    // Force HTTPS in production
+    if (protocol !== 'https') {
+      const httpsUrl = `https://${host}${req.originalUrl}`;
+      return res.redirect(301, httpsUrl);
+    }
+    
+    next();
+  });
+}
+
 // CORS configuration
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:3000',

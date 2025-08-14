@@ -42,6 +42,7 @@ import PrivacyPolicyPage from './pages/static/PrivacyPolicyPage';
 import TermsOfServicePage from './pages/static/TermsOfServicePage';
 import CookiePolicyPage from './pages/static/CookiePolicyPage';
 import CompliancePage from './pages/static/CompliancePage';
+import NotFoundPage from './pages/static/NotFoundPage';
 
 // Protected Pages
 import DashboardPage from './pages/dashboard/DashboardPage';
@@ -625,8 +626,15 @@ function App() {
                     }
                   />
 
-                  {/* Catch all route */}
-                  <Route path="*" element={<Navigate to="/" replace />} />
+                  {/* 404 Not Found Route */}
+                  <Route
+                    path="*"
+                    element={
+                      <PublicLayout>
+                        <NotFoundPage />
+                      </PublicLayout>
+                    }
+                  />
                 </Routes>
                   </AnimatePresence>
 
