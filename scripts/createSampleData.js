@@ -113,8 +113,10 @@ async function createSampleData() {
       const merchant = merchants[Math.floor(Math.random() * merchants.length)];
       const paymentLink = paymentLinks.find(link => link.merchant.toString() === merchant._id.toString());
       
+      const transactionId = `txn_${Date.now()}_${i}`;
       const transaction = new Transaction({
-        transactionId: `txn_${Date.now()}_${i}`,
+        transactionId,
+        reference: transactionId,
         merchant: merchant._id,
         paymentLink: paymentLink ? paymentLink._id : null,
         amount: Math.floor(Math.random() * 1000) + 50,

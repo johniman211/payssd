@@ -361,6 +361,7 @@ router.post('/process', [
     // Create transaction
     const transaction = new Transaction({
       transactionId,
+      reference: transactionId, // Use transactionId as reference for uniqueness
       merchant: paymentLink.merchant._id,
       merchantEmail: paymentLink.merchant.email,
       merchantBusinessName: paymentLink.merchant.profile.businessName,

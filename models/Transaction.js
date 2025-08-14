@@ -8,6 +8,11 @@ const transactionSchema = new mongoose.Schema({
     unique: true
   },
   externalTransactionId: String, // ID from payment provider
+  reference: {
+    type: String,
+    unique: true,
+    sparse: true // Allow multiple null values
+  },
   
   // Merchant Information
   merchant: {
