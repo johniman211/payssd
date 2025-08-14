@@ -46,14 +46,38 @@ const createEmailTransporter = () => {
     console.log('Using MockEmailService - email credentials not configured');
     return new MockEmailService();
   }
-
+  
+  // Using real SMTP service with new Brevo credentials
   console.log('Email service configured with SMTP transporter');
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465, // true for port 465, false for 587/25
-    auth: { user, pass }
+  
+  const transporter = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port: process.env.EMAIL_PORT,
+    secure: false,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS
+    },
+    connectionTimeout: 5000,
+    greetingTimeout: 3000,
+    socketTimeout: 5000
   });
+
+  // Test SMTP connection
+  transporter.verify((error, success) => {
+    if (error) {
+      console.log('SMTP connection test failed:', {
+        code: error.code,
+        command: error.command,
+        response: error.response,
+        responseCode: error.responseCode
+      });
+    } else {
+      console.log('SMTP connection test successful');
+    }
+  });
+
+  return transporter;
 };
 
 const transporter = createEmailTransporter();
@@ -188,6 +212,12 @@ router.post('/register', [
       });
     } catch (emailError) {
       console.error('Failed to send verification email:', emailError);
+      console.error('Email error details:', {
+        code: emailError.code,
+        command: emailError.command,
+        response: emailError.response,
+        responseCode: emailError.responseCode
+      });
     }
 
     // Generate JWT token
@@ -445,6 +475,12 @@ router.post('/resend-verification', auth, async (req, res) => {
       
     } catch (emailError) {
       console.error('Failed to send verification email:', emailError);
+      console.error('Email error details:', {
+        code: emailError.code,
+        command: emailError.command,
+        response: emailError.response,
+        responseCode: emailError.responseCode
+      });
       res.status(500).json({
         success: false,
         message: 'Failed to send verification email'
