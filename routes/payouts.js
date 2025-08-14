@@ -3,11 +3,13 @@ const { body, query, validationResult } = require('express-validator');
 const Payout = require('../models/Payout');
 const User = require('../models/User');
 const { auth, merchantAuth } = require('../middleware/auth');
+const { requireEmailVerification } = require('../middleware/emailVerification');
 const router = express.Router();
 
 // Get merchant's payouts with filtering and pagination
 router.get('/', [
   auth,
+  requireEmailVerification,
   merchantAuth,
   query('page')
     .optional()
@@ -111,7 +113,7 @@ router.get('/', [
 });
 
 // Get single payout details
-router.get('/:payoutId', [auth, merchantAuth], async (req, res) => {
+router.get('/:payoutId', [auth, requireEmailVerification, merchantAuth], async (req, res) => {
   try {
     const { payoutId } = req.params;
 
@@ -302,7 +304,7 @@ router.post('/request', [
 });
 
 // Cancel a pending payout
-router.put('/:payoutId/cancel', [auth, merchantAuth], async (req, res) => {
+router.put('/:payoutId/cancel', [auth, requireEmailVerification, merchantAuth], async (req, res) => {
   try {
     const { payoutId } = req.params;
 
@@ -346,7 +348,7 @@ router.put('/:payoutId/cancel', [auth, merchantAuth], async (req, res) => {
 });
 
 // Get payout statistics
-router.get('/stats/overview', [auth, merchantAuth], async (req, res) => {
+router.get('/stats/overview', [auth, requireEmailVerification, merchantAuth], async (req, res) => {
   try {
     const userId = req.user.id;
     const now = new Date();
@@ -494,7 +496,7 @@ router.get('/stats/overview', [auth, merchantAuth], async (req, res) => {
 });
 
 // Get available payout methods and their fees
-router.get('/methods', [auth, merchantAuth], async (req, res) => {
+router.get('/methods', [auth, requireEmailVerification, merchantAuth], async (req, res) => {
   try {
     const methods = [
       {

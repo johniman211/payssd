@@ -175,9 +175,55 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Email verification function
+  const verifyEmail = async (token) => {
+    try {
+      const response = await axios.post('/api/auth/verify-email', { token });
+      
+      if (response.data.success) {
+        // Update user state to reflect email verification
+        const updatedUser = { ...user, isEmailVerified: true };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        
+        toast.success('Email verified successfully!');
+        return { success: true, message: response.data.message };
+      }
+      
+      return { success: false, message: response.data.message };
+    } catch (error) {
+      const message = error.response?.data?.message || 'Email verification failed';
+      toast.error(message);
+      return { success: false, error: message };
+    }
+  };
+
+  // Resend verification email function
+  const resendVerificationEmail = async () => {
+    try {
+      const response = await axios.post('/api/auth/resend-verification');
+      
+      if (response.data.success) {
+        toast.success('Verification email sent! Please check your inbox.');
+        return { success: true, message: response.data.message };
+      }
+      
+      return { success: false, message: response.data.message };
+    } catch (error) {
+      const message = error.response?.data?.message || 'Failed to resend verification email';
+      toast.error(message);
+      return { success: false, error: message };
+    }
+  };
+
   // Helper: check if current user is admin (used by Navbar and others)
   const isAdmin = () => {
     return (user?.role === 'admin') || (TokenStorage.getCurrentRole() === 'admin');
+  };
+
+  // Helper: check if current user's email is verified
+  const isEmailVerified = () => {
+    return user?.isEmailVerified === true;
   };
 
   const value = {
@@ -187,7 +233,10 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateUser,
-    isAdmin
+    verifyEmail,
+    resendVerificationEmail,
+    isAdmin,
+    isEmailVerified
   };
 
   return (

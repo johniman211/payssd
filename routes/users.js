@@ -2,7 +2,8 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
-const { auth, merchantAuth } = require('../middleware/auth');
+const { auth, adminAuth, merchantAuth } = require('../middleware/auth');
+const { requireEmailVerification } = require('../middleware/emailVerification');
 const router = express.Router();
 
 // Get current user profile
@@ -432,7 +433,7 @@ router.put('/password', [
 });
 
 // Get API keys (merchant only)
-router.get('/api-keys', [auth, merchantAuth], async (req, res) => {
+router.get('/api-keys', [auth, requireEmailVerification, merchantAuth], async (req, res) => {
   try {
     const user = await User.findById(req.user.id)
       .select('apiKeys')
@@ -462,7 +463,7 @@ router.get('/api-keys', [auth, merchantAuth], async (req, res) => {
 });
 
 // Regenerate API keys (merchant only)
-router.post('/api-keys/regenerate', [auth, merchantAuth], async (req, res) => {
+router.post('/api-keys/regenerate', [auth, requireEmailVerification, merchantAuth], async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) {
@@ -494,7 +495,7 @@ router.post('/api-keys/regenerate', [auth, merchantAuth], async (req, res) => {
 });
 
 // Get account balance (merchant only)
-router.get('/balance', [auth, merchantAuth], async (req, res) => {
+router.get('/balance', [auth, requireEmailVerification, merchantAuth], async (req, res) => {
   try {
     const user = await User.findById(req.user.id)
       .select('balance')
@@ -516,7 +517,7 @@ router.get('/balance', [auth, merchantAuth], async (req, res) => {
 });
 
 // Get account statistics (merchant only)
-router.get('/stats', [auth, merchantAuth], async (req, res) => {
+router.get('/stats', [auth, requireEmailVerification, merchantAuth], async (req, res) => {
   try {
     const Transaction = require('../models/Transaction');
     const PaymentLink = require('../models/PaymentLink');

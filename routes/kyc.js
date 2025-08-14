@@ -5,6 +5,7 @@ const fs = require('fs');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { auth, merchantAuth, adminAuth } = require('../middleware/auth');
+const { requireEmailVerification } = require('../middleware/emailVerification');
 
 const router = express.Router();
 
@@ -53,7 +54,7 @@ const upload = multer({
 // @route   POST /api/kyc/submit
 // @desc    Submit KYC documents
 // @access  Private (Merchant)
-router.post('/submit', auth, merchantAuth, upload.fields([
+router.post('/submit', auth, requireEmailVerification, merchantAuth, upload.fields([
   { name: 'idDocument', maxCount: 1 },
   { name: 'businessLicense', maxCount: 1 },
   { name: 'proofOfAddress', maxCount: 1 }
@@ -212,7 +213,7 @@ router.post('/submit', auth, merchantAuth, upload.fields([
 // @route   GET /api/kyc/status
 // @desc    Get KYC status
 // @access  Private (Merchant)
-router.get('/status', auth, merchantAuth, async (req, res) => {
+router.get('/status', auth, requireEmailVerification, merchantAuth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('kyc profile.businessName');
     

@@ -13,6 +13,8 @@ import Footer from './components/layout/Footer';
 import Sidebar from './components/layout/Sidebar';
 import AdminLayout from './layouts/AdminLayout';
 import LoadingSpinner from './components/ui/LoadingSpinner';
+import EmailVerificationBanner from './components/EmailVerificationBanner';
+import EmailVerificationRequired from './components/EmailVerificationRequired';
 
 // Public Pages
 import LandingPage from './pages/public/LandingPage';
@@ -20,6 +22,7 @@ import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
+import EmailVerificationPage from './pages/auth/EmailVerificationPage';
 import PaymentPage from './pages/public/PaymentPage';
 import PaymentSuccessPage from './pages/public/PaymentSuccessPage';
 import PaymentFailedPage from './pages/public/PaymentFailedPage';
@@ -117,8 +120,8 @@ const AnimatedPage = ({ children }) => {
 };
 
 // Protected Route Component
-const ProtectedRoute = ({ children, adminOnly = false, merchantOnly = false }) => {
-  const { user, loading } = useAuth();
+const ProtectedRoute = ({ children, adminOnly = false, merchantOnly = false, requireEmailVerification = false }) => {
+  const { user, loading, isEmailVerified } = useAuth();
 
   if (loading) {
     return (
@@ -138,6 +141,11 @@ const ProtectedRoute = ({ children, adminOnly = false, merchantOnly = false }) =
 
   if (merchantOnly && user.role !== 'merchant') {
     return <Navigate to="/admin" replace />;
+  }
+
+  // Check email verification for merchant routes that require it
+  if (requireEmailVerification && merchantOnly && !isEmailVerified()) {
+    return <EmailVerificationRequired />;
   }
 
   return <AnimatedPage>{children}</AnimatedPage>;
@@ -184,6 +192,7 @@ const DashboardLayout = ({ children }) => {
           onMobileClose={() => setIsMobileSidebarOpen(false)}
         />
         <main className="flex-1 lg:ml-64 transition-all duration-300">
+          <EmailVerificationBanner />
           <div className="p-6 lg:p-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -433,6 +442,14 @@ function App() {
                       </PublicRoute>
                     }
                   />
+                  <Route
+                    path="/verify-email/:token"
+                    element={
+                      <PublicLayout showNavbar={false} showFooter={false}>
+                        <EmailVerificationPage />
+                      </PublicLayout>
+                    }
+                  />
 
                   {/* Payment Routes */}
                   <Route
@@ -474,7 +491,7 @@ function App() {
                   <Route
                     path="/dashboard/payment-links"
                     element={
-                      <ProtectedRoute merchantOnly>
+                      <ProtectedRoute merchantOnly requireEmailVerification>
                         <DashboardLayout>
                           <PaymentLinksPage />
                         </DashboardLayout>
@@ -484,7 +501,7 @@ function App() {
                   <Route
                     path="/dashboard/payment-links/create"
                     element={
-                      <ProtectedRoute merchantOnly>
+                      <ProtectedRoute merchantOnly requireEmailVerification>
                         <DashboardLayout>
                           <CreatePaymentLinkPage />
                         </DashboardLayout>
@@ -494,7 +511,7 @@ function App() {
                   <Route
                     path="/dashboard/transactions"
                     element={
-                      <ProtectedRoute merchantOnly>
+                      <ProtectedRoute merchantOnly requireEmailVerification>
                         <DashboardLayout>
                           <TransactionsPage />
                         </DashboardLayout>
@@ -504,7 +521,7 @@ function App() {
                   <Route
                     path="/dashboard/payouts"
                     element={
-                      <ProtectedRoute merchantOnly>
+                      <ProtectedRoute merchantOnly requireEmailVerification>
                         <DashboardLayout>
                           <PayoutsPage />
                         </DashboardLayout>
@@ -514,7 +531,7 @@ function App() {
                   <Route
                     path="/dashboard/kyc"
                     element={
-                      <ProtectedRoute merchantOnly>
+                      <ProtectedRoute merchantOnly requireEmailVerification>
                         <DashboardLayout>
                           <KYCPage />
                         </DashboardLayout>

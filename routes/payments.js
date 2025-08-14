@@ -5,6 +5,7 @@ const Transaction = require('../models/Transaction');
 const PaymentLink = require('../models/PaymentLink');
 const User = require('../models/User');
 const { auth, merchantAuth, kycVerified, apiKeyAuth, optionalAuth } = require('../middleware/auth');
+const { requireEmailVerification } = require('../middleware/emailVerification');
 const { processMTNPayment, processDigicashPayment } = require('../services/paymentService');
 const { sendWebhook, verifyWebhookSignature } = require('../services/webhookService');
 const { sendNotification } = require('../services/notificationService');
@@ -28,7 +29,7 @@ const merchantApiAuth = async (req, res, next) => {
 // @route   POST /api/payments/create-link
 // @desc    Create a payment link
 // @access  Private (Merchant, KYC Verified)
-router.post('/create-link', auth, merchantAuth, kycVerified, [
+router.post('/create-link', auth, requireEmailVerification, merchantAuth, kycVerified, [
   body('title')
     .trim()
     .isLength({ min: 3, max: 100 })
