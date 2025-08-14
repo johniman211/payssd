@@ -383,6 +383,76 @@ router.post('/verify-email', [
   }
 });
 
+// @route   POST /api/auth/resend-verification
+// @desc    Resend email verification
+// @access  Private
+router.post('/resend-verification', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (user.isEmailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is already verified'
+      });
+    }
+
+    // Generate new verification token
+    const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+    user.emailVerificationToken = emailVerificationToken;
+    await user.save();
+
+    // Send verification email
+    const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${emailVerificationToken}`;
+    
+    try {
+      await transporter.sendMail({
+        from: process.env.EMAIL_FROM,
+        to: user.email,
+        subject: 'PaySSD - Email Verification',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2563eb;">Email Verification</h2>
+            <p>Hello ${user.profile.firstName},</p>
+            <p>Please click the button below to verify your email address:</p>
+            <a href="${verificationUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin: 20px 0;">Verify Email</a>
+            <p>Or copy and paste this link in your browser:</p>
+            <p style="word-break: break-all;">${verificationUrl}</p>
+            <p>If you didn't request this verification email, please ignore this message.</p>
+            <p>Best regards,<br>The PaySSD Team</p>
+          </div>
+        `
+      });
+      
+      res.json({
+        success: true,
+        message: 'Verification email sent successfully'
+      });
+      
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to send verification email'
+      });
+    }
+
+  } catch (error) {
+    console.error('Resend verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during resend verification'
+    });
+  }
+});
+
 // @route   POST /api/auth/forgot-password
 // @desc    Request password reset
 // @access  Public
