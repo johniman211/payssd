@@ -191,9 +191,9 @@ const DashboardLayout = ({ children }) => {
           isMobileOpen={isMobileSidebarOpen}
           onMobileClose={() => setIsMobileSidebarOpen(false)}
         />
-        <main className="flex-1 lg:ml-64 transition-all duration-300">
+        <main className="flex-1 lg:ml-64 transition-all duration-300 relative z-10">
           <EmailVerificationBanner />
-          <div className="p-6 lg:p-8">
+          <div className="p-4 sm:p-6 lg:p-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
