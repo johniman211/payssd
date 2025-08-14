@@ -9,6 +9,11 @@ const paymentLinkSchema = new mongoose.Schema({
     unique: true,
     default: () => uuidv4().replace(/-/g, '').substring(0, 16)
   },
+  reference: {
+    type: String,
+    unique: true,
+    default: () => uuidv4().replace(/-/g, '').substring(0, 12)
+  },
   
   // Merchant Information
   merchant: {
