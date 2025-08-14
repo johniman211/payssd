@@ -40,11 +40,21 @@ const createEmailTransporter = () => {
   const user = process.env.EMAIL_USER || process.env.SMTP_USER;
   const pass = process.env.EMAIL_PASS || process.env.SMTP_PASS;
 
+  console.log('Email Configuration Check:');
+  console.log('HOST:', host);
+  console.log('PORT:', port);
+  console.log('USER:', user);
+  console.log('PASS:', pass ? 'SET' : 'NOT SET');
+
   const hasCredentials = !!(host && user && pass);
+  console.log('Has credentials:', hasCredentials);
+  
   if (!hasCredentials) {
+    console.log('Using MockEmailService - credentials missing');
     return new MockEmailService();
   }
 
+  console.log('Using real SMTP transporter');
   return nodemailer.createTransport({
     host,
     port,
@@ -156,8 +166,10 @@ router.post('/register', [
     // Send verification email
     const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${emailVerificationToken}`;
     
+    console.log(`Attempting to send verification email to: ${user.email}`);
+    
     try {
-      await transporter.sendMail({
+      const emailResult = await transporter.sendMail({
         from: process.env.EMAIL_FROM,
         to: email,
         subject: 'Welcome to PaySSD - Verify Your Email',
@@ -430,6 +442,8 @@ router.post('/resend-verification', auth, async (req, res) => {
           </div>
         `
       });
+      
+      console.log('Email sent successfully:', emailResult.messageId);
       
       res.json({
         success: true,
