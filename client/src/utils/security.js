@@ -67,8 +67,17 @@ export const TokenStorage = {
       const parsed = JSON.parse(tokenData);
       const now = Date.now();
       
-      // Check if token is expired
-      if (now - parsed.timestamp > parsed.expiresIn) {
+      // Check if token data is valid
+      if (!parsed.token || !parsed.timestamp || !parsed.expiresIn) {
+        console.warn('Invalid token data structure, removing token');
+        TokenStorage.removeToken(targetRole);
+        return null;
+      }
+      
+      // Check if token is expired (with 5 minute buffer to prevent premature expiry)
+      const bufferTime = 5 * 60 * 1000; // 5 minutes
+      if (now - parsed.timestamp > (parsed.expiresIn - bufferTime)) {
+        console.log('Token expired, removing from storage');
         TokenStorage.removeToken(targetRole);
         return null;
       }
@@ -331,29 +340,62 @@ export const SessionSecurity = {
   },
   
   // Set up session timeout
-  setupSessionTimeout: (timeoutMs = 30 * 60 * 1000) => { // 30 minutes default
+  setupSessionTimeout: (timeoutMs = 2 * 60 * 60 * 1000) => { // 2 hours default (increased from 30 minutes)
     let timeoutId;
+    let warningTimeoutId;
     
     const resetTimeout = () => {
       clearTimeout(timeoutId);
+      clearTimeout(warningTimeoutId);
+      
+      // Show warning 5 minutes before expiry
+      const warningTime = timeoutMs - (5 * 60 * 1000);
+      if (warningTime > 0) {
+        warningTimeoutId = setTimeout(() => {
+          const extendSession = window.confirm('Your session will expire in 5 minutes. Would you like to extend it?');
+          if (extendSession) {
+            resetTimeout(); // Reset the timeout if user wants to extend
+          }
+        }, warningTime);
+      }
+      
       timeoutId = setTimeout(() => {
-        alert('Your session has expired. Please log in again.');
-        SessionSecurity.clearSession();
-        window.location.href = '/login';
+        try {
+          alert('Your session has expired. Please log in again.');
+          SessionSecurity.clearSession();
+          window.location.href = '/login';
+        } catch (error) {
+          console.error('Error during session timeout:', error);
+          // Fallback: just clear session without redirect if there's an error
+          SessionSecurity.clearSession();
+        }
       }, timeoutMs);
     };
     
+    // Reset timeout on user activity (throttled to avoid excessive calls)
+    let lastActivity = 0;
+    const throttleMs = 30000; // 30 seconds throttle
+    
+    const throttledResetTimeout = () => {
+      const now = Date.now();
+      if (now - lastActivity > throttleMs) {
+        lastActivity = now;
+        resetTimeout();
+      }
+    };
+    
     // Reset timeout on user activity
-    ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(event => {
-      document.addEventListener(event, resetTimeout, true);
+    ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'].forEach(event => {
+      document.addEventListener(event, throttledResetTimeout, true);
     });
     
     resetTimeout();
     
     return () => {
       clearTimeout(timeoutId);
-      ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(event => {
-        document.removeEventListener(event, resetTimeout, true);
+      clearTimeout(warningTimeoutId);
+      ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'].forEach(event => {
+        document.removeEventListener(event, throttledResetTimeout, true);
       });
     };
   }

@@ -50,9 +50,20 @@ axios.interceptors.response.use(
     ErrorSecurity.logError(error, 'API Request');
     
     if (error.response?.status === 401) {
+      // Only redirect if we're not already on login page and not during initial auth check
+      const currentPath = window.location.pathname;
+      const isLoginPage = currentPath === '/login' || currentPath === '/register';
+      const isPublicPage = currentPath === '/' || currentPath.startsWith('/payment') || currentPath.startsWith('/verify-email');
+      
       SessionSecurity.clearSession();
-      toast.error('Session expired. Please log in again.');
-      window.location.href = '/login';
+      
+      if (!isLoginPage && !isPublicPage) {
+        toast.error('Session expired. Please log in again.');
+        // Use setTimeout to prevent immediate redirect during component mounting
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 100);
+      }
     }
     return Promise.reject(error);
   }
@@ -76,8 +87,10 @@ export const AuthProvider = ({ children }) => {
       try {
         // Validate session security
         if (!SessionSecurity.validateSession()) {
+          console.log('Session validation failed, clearing session');
           SessionSecurity.clearSession();
           setUser(null);
+          setLoading(false);
           return;
         }
         
@@ -85,14 +98,37 @@ export const AuthProvider = ({ children }) => {
         const savedUser = localStorage.getItem('user');
         
         if (token && savedUser) {
-          setUser(JSON.parse(savedUser));
-          // Verify token is still valid
-          await axios.get('/api/users/profile');
+          try {
+            const parsedUser = JSON.parse(savedUser);
+            setUser(parsedUser);
+            // Verify token is still valid with timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            
+            await axios.get('/api/users/profile', {
+              signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+          } catch (profileError) {
+            console.log('Profile verification failed:', profileError.message);
+            // If profile check fails, still keep user logged in but log the error
+            // Only clear session if it's a 401 (handled by interceptor)
+            if (profileError.response?.status !== 401) {
+              console.warn('Profile check failed but keeping user logged in');
+            }
+          }
+        } else {
+          console.log('No token or saved user found');
+          setUser(null);
         }
       } catch (error) {
-        // Token is invalid, clear storage
-        SessionSecurity.clearSession();
-        setUser(null);
+        console.error('Auth check error:', error);
+        // Only clear session for specific errors, not network issues
+        if (error.response?.status === 401 || error.name === 'AbortError') {
+          SessionSecurity.clearSession();
+          setUser(null);
+        }
       } finally {
         setLoading(false);
       }
