@@ -181,10 +181,18 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.post('/api/auth/verify-email', { token });
       
       if (response.data.success) {
-        // Update user state to reflect email verification
-        const updatedUser = { ...user, isEmailVerified: true };
-        setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
+        // Fetch the latest user profile to ensure state is synchronized
+        try {
+          const profileResponse = await axios.get('/api/users/profile');
+          const updatedUser = profileResponse.data.user;
+          setUser(updatedUser);
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+        } catch (profileError) {
+          // Fallback to local update if profile fetch fails
+          const updatedUser = { ...user, isEmailVerified: true };
+          setUser(updatedUser);
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+        }
         
         toast.success('Email verified successfully!');
         return { success: true, message: response.data.message };
