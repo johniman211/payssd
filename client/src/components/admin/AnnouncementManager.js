@@ -47,7 +47,8 @@ const AnnouncementManager = () => {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
       });
-      setAnnouncements(response.data);
+      // Handle the nested response structure
+      setAnnouncements(response.data.announcements || response.data);
     } catch (error) {
       console.error('Error fetching announcements:', error);
       toast.error('Failed to fetch announcements');
@@ -62,10 +63,13 @@ const AnnouncementManager = () => {
     try {
       const payload = {
         ...formData,
+        isActive: formData.active, // Map frontend 'active' to backend 'isActive'
         actionButton: formData.actionButton.text && formData.actionButton.url 
           ? formData.actionButton 
           : undefined
       };
+      // Remove the frontend 'active' field to avoid confusion
+      delete payload.active;
 
       if (editingAnnouncement) {
         await axios.put(`/api/announcements/${editingAnnouncement._id}`, payload, {
@@ -99,7 +103,7 @@ const AnnouncementManager = () => {
       title: announcement.title,
       message: announcement.message,
       type: announcement.type,
-      active: announcement.active,
+      active: announcement.isActive,
       startDate: announcement.startDate ? new Date(announcement.startDate).toISOString().split('T')[0] : '',
       endDate: announcement.endDate ? new Date(announcement.endDate).toISOString().split('T')[0] : '',
       priority: announcement.priority,
@@ -267,11 +271,11 @@ const AnnouncementManager = () => {
                           {announcement.title}
                         </h3>
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          announcement.active 
+                          announcement.isActive 
                             ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                             : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                         }`}>
-                          {announcement.active ? 'Active' : 'Inactive'}
+                          {announcement.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </div>
                       <p className="text-gray-600 dark:text-gray-400 mb-3">
@@ -292,15 +296,15 @@ const AnnouncementManager = () => {
                       <motion.button
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
-                        onClick={() => toggleStatus(announcement._id, announcement.active)}
+                        onClick={() => toggleStatus(announcement._id, announcement.isActive)}
                         className={`p-2 rounded-lg transition-colors duration-200 ${
-                          announcement.active
+                          announcement.isActive
                             ? 'text-green-600 hover:bg-green-100 dark:hover:bg-green-900'
                             : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                         }`}
-                        title={announcement.active ? 'Deactivate' : 'Activate'}
+                        title={announcement.isActive ? 'Deactivate' : 'Activate'}
                       >
-                        {announcement.active ? (
+                        {announcement.isActive ? (
                           <EyeIcon className="h-5 w-5" />
                         ) : (
                           <EyeSlashIcon className="h-5 w-5" />
