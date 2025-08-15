@@ -74,12 +74,18 @@ export const TokenStorage = {
         return null;
       }
       
-      // Check if token is expired (with 5 minute buffer to prevent premature expiry)
-      const bufferTime = 5 * 60 * 1000; // 5 minutes
+      // Check if token is expired (with 10 minute buffer to prevent premature expiry)
+      const bufferTime = 10 * 60 * 1000; // 10 minutes
       if (now - parsed.timestamp > (parsed.expiresIn - bufferTime)) {
-        console.log('Token expired, removing from storage');
+        console.log('Token expired, removing from storage. Age:', Math.round((now - parsed.timestamp) / 1000 / 60), 'minutes');
         TokenStorage.removeToken(targetRole);
         return null;
+      }
+      
+      // Log token age for debugging
+      const tokenAgeMinutes = Math.round((now - parsed.timestamp) / 1000 / 60);
+      if (tokenAgeMinutes > 60) { // Log if token is older than 1 hour
+        console.log('Token age:', tokenAgeMinutes, 'minutes');
       }
       
       return parsed.token;

@@ -1,8 +1,34 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
 import { useAuth } from './AuthContext';
 import { TokenStorage } from '../utils/security';
+
+// Error boundary for RealtimeContext
+class RealtimeErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('RealtimeContext error:', error, errorInfo);
+    // Don't show error to user, just log it
+  }
+
+  render() {
+    if (this.state.hasError) {
+      // Return children without realtime functionality
+      return this.props.children;
+    }
+
+    return this.props.children;
+  }
+}
 
 const RealtimeContext = createContext();
 
@@ -14,118 +40,154 @@ export const useRealtime = () => {
   return context;
 };
 
-export const RealtimeProvider = ({ children }) => {
+const RealtimeProviderInner = ({ children }) => {
   const { user, setUser } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
+  
   const socketRef = useRef(null);
-  const reconnectTimeoutRef = useRef(null);
-  const pollingIntervalRef = useRef(null);
   const heartbeatIntervalRef = useRef(null);
+  const pollingIntervalRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
   const lastUpdateRef = useRef(null);
+  
+  // Add error state
+  const [hasError, setHasError] = useState(false);
+  
+  // Error handler
+  const handleError = (error, context = '') => {
+    console.error(`RealtimeContext error (${context}):`, error);
+    setHasError(true);
+    // Reset error state after 5 seconds
+    setTimeout(() => setHasError(false), 5000);
+  };
 
   // Initialize Socket.IO connection
   const initializeSocket = () => {
-    if (!user || socketRef.current) return;
-
-    const token = TokenStorage.getToken();
-    if (!token) return;
-
-    const serverUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-    
-    socketRef.current = io(serverUrl, {
-      auth: {
-        token: token
-      },
-      transports: ['websocket', 'polling'],
-      timeout: 10000,
-      forceNew: true
-    });
-
-    const socket = socketRef.current;
-
-    // Connection events
-    socket.on('connect', () => {
-      console.log('✅ Real-time connection established');
-      setIsConnected(true);
-      setConnectionStatus('connected');
-      clearTimeout(reconnectTimeoutRef.current);
+    try {
+      if (socketRef.current?.connected) return;
       
-      // Request initial user data
-      socket.emit('requestUserUpdate');
-      
-      // Start heartbeat
-      startHeartbeat();
-    });
+      const token = TokenStorage.getToken();
+      if (!token) {
+        console.log('❌ No token available for socket connection');
+        return;
+      }
 
-    socket.on('disconnect', (reason) => {
-      console.log('❌ Real-time connection lost:', reason);
-      setIsConnected(false);
-      setConnectionStatus('disconnected');
+      console.log('🔌 Initializing socket connection...');
       
-      // Start fallback polling
-      startFallbackPolling();
-      
-      // Attempt reconnection
-      scheduleReconnect();
-    });
+      socketRef.current = io(process.env.REACT_APP_API_URL || 'http://localhost:5000', {
+        auth: { token },
+        transports: ['websocket', 'polling'],
+        timeout: 20000,
+        reconnection: true,
+        reconnectionAttempts: 3,
+        reconnectionDelay: 2000,
+        reconnectionDelayMax: 10000,
+        maxReconnectionAttempts: 3
+      });
 
-    socket.on('connect_error', (error) => {
-      console.error('🔌 Connection error:', error.message);
+      const socket = socketRef.current;
+
+      // Connection events
+      socket.on('connect', () => {
+        console.log('✅ Real-time connection established');
+        setIsConnected(true);
+        setConnectionStatus('connected');
+        clearTimeout(reconnectTimeoutRef.current);
+        
+        // Request initial user data
+        socket.emit('requestUserUpdate');
+        
+        // Start heartbeat
+        startHeartbeat();
+      });
+
+      socket.on('disconnect', (reason) => {
+        console.log('❌ Real-time connection lost:', reason);
+        setIsConnected(false);
+        setConnectionStatus('disconnected');
+        
+        // Start fallback polling
+        startFallbackPolling();
+        
+        // Attempt reconnection
+        scheduleReconnect();
+      });
+
+      socket.on('connect_error', (error) => {
+        console.error('🔌 Connection error:', error.message);
+        setConnectionStatus('error');
+        
+        // Check if it's a token-related error
+        if (error.message?.includes('token') || error.message?.includes('auth')) {
+          console.log('🔑 Token-related error, clearing session...');
+          TokenStorage.clearToken();
+          setUser(null);
+          return;
+        }
+        
+        // Start fallback polling
+        startFallbackPolling();
+        
+        // Schedule reconnect
+        scheduleReconnect();
+      });
+      
+      // User update events
+      socket.on('userUpdate', (data) => {
+        console.log('📡 Received user update:', data.type);
+        handleUserUpdate(data);
+      });
+
+      // Heartbeat response
+      socket.on('pong', (data) => {
+        console.log('💓 Heartbeat received');
+      });
+      
+    } catch (error) {
+      handleError(error, 'initializeSocket');
       setConnectionStatus('error');
-      
-      // Start fallback polling
       startFallbackPolling();
-      
-      // Schedule reconnect
-      scheduleReconnect();
-    });
-
-    // User update events
-    socket.on('userUpdate', (data) => {
-      console.log('📡 Received user update:', data.type);
-      handleUserUpdate(data);
-    });
-
-    // Heartbeat response
-    socket.on('pong', (data) => {
-      console.log('💓 Heartbeat received');
-    });
+    }
   };
 
   // Handle user updates from real-time events
   const handleUserUpdate = (data) => {
-    const { type, user: updatedUser, message } = data;
-    
-    // Prevent duplicate updates
-    if (lastUpdateRef.current === data.timestamp) return;
-    lastUpdateRef.current = data.timestamp;
+    try {
+      const { type, user: updatedUser, message } = data;
+      
+      // Prevent duplicate updates
+      if (lastUpdateRef.current === data.timestamp) return;
+      lastUpdateRef.current = data.timestamp;
 
-    // Update user state
-    if (updatedUser) {
-      setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-    }
+      // Update user state
+      if (updatedUser) {
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+      }
 
-    // Show appropriate notifications
-    switch (type) {
-      case 'EMAIL_VERIFICATION_UPDATE':
-        if (data.isEmailVerified) {
-          toast.success('🎉 Email verified successfully! Your account is now fully activated.');
-          // Trigger a page refresh for components that depend on verification status
-          window.dispatchEvent(new CustomEvent('emailVerified', { detail: updatedUser }));
-        }
-        break;
-      case 'KYC_UPDATE':
-        toast.success('📋 KYC status updated');
-        break;
-      case 'USER_DATA':
-        // Silent update for initial data
-        break;
-      default:
-        if (message) {
-          toast.success(message);
-        }
+      // Show appropriate notifications
+      switch (type) {
+        case 'EMAIL_VERIFICATION_UPDATE':
+          if (data.isEmailVerified) {
+            toast.success('🎉 Email verified successfully! Your account is now fully activated.');
+            // Trigger a page refresh for components that depend on verification status
+            window.dispatchEvent(new CustomEvent('emailVerified', { detail: updatedUser }));
+          }
+          break;
+        case 'KYC_UPDATE':
+          toast.success('📋 KYC status updated');
+          break;
+        case 'USER_DATA':
+          // Silent update for initial data
+          break;
+        default:
+          if (message) {
+            toast.success(message);
+          }
+      }
+    } catch (error) {
+      handleError(error, 'handleUserUpdate');
     }
   };
 
@@ -154,9 +216,16 @@ export const RealtimeProvider = ({ children }) => {
     
     pollingIntervalRef.current = setInterval(async () => {
       try {
+        const token = TokenStorage.getToken();
+        if (!token) {
+          console.log('❌ No token available for polling, stopping...');
+          stopFallbackPolling();
+          return;
+        }
+        
         const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/users/profile`, {
           headers: {
-            'Authorization': `Bearer ${TokenStorage.getToken()}`,
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
@@ -173,11 +242,17 @@ export const RealtimeProvider = ({ children }) => {
               timestamp: new Date().toISOString()
             });
           }
+        } else if (response.status === 401) {
+          console.log('🔑 Authentication failed during polling, clearing session...');
+          TokenStorage.removeToken();
+          setUser(null);
+          stopFallbackPolling();
         }
       } catch (error) {
         console.error('Polling error:', error);
+        // Don't stop polling for network errors, only for auth errors
       }
-    }, 10000); // Every 10 seconds
+    }, 15000); // Every 15 seconds (reduced frequency)
   };
 
   // Stop fallback polling
@@ -264,6 +339,44 @@ export const RealtimeProvider = ({ children }) => {
     };
   }, [user]);
 
+  // Token validation effect to prevent white screen
+  useEffect(() => {
+    if (!user) return;
+
+    const validateToken = () => {
+      try {
+        const token = TokenStorage.getToken();
+        if (!token && user) {
+          console.log('🔑 Token expired, logging out user...');
+          setUser(null);
+          localStorage.removeItem('user');
+          cleanup();
+        }
+      } catch (error) {
+        handleError(error, 'tokenValidation');
+        // Gracefully handle token validation errors
+        try {
+          setUser(null);
+          localStorage.removeItem('user');
+          cleanup();
+        } catch (cleanupError) {
+          console.error('Cleanup error:', cleanupError);
+        }
+      }
+    };
+
+    // Check token validity every 30 seconds
+    const tokenCheckInterval = setInterval(validateToken, 30000);
+
+    return () => {
+      try {
+        clearInterval(tokenCheckInterval);
+      } catch (error) {
+        console.error('Error clearing token validation interval:', error);
+      }
+    };
+  }, [user, setUser]);
+
   // Browser tab visibility handling
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -292,6 +405,20 @@ export const RealtimeProvider = ({ children }) => {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [setUser]);
 
+  // If there's an error, provide minimal context
+  if (hasError) {
+    return (
+      <RealtimeContext.Provider value={{
+        isConnected: false,
+        connectionStatus: 'error',
+        refreshUserData: () => {},
+        debug: { socketId: null, transport: null }
+      }}>
+        {children}
+      </RealtimeContext.Provider>
+    );
+  }
+
   const value = {
     isConnected,
     connectionStatus,
@@ -307,5 +434,14 @@ export const RealtimeProvider = ({ children }) => {
     <RealtimeContext.Provider value={value}>
       {children}
     </RealtimeContext.Provider>
+  );
+};
+
+// Export with error boundary
+export const RealtimeProvider = ({ children }) => {
+  return (
+    <RealtimeErrorBoundary>
+      <RealtimeProviderInner>{children}</RealtimeProviderInner>
+    </RealtimeErrorBoundary>
   );
 };
