@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from 'react-query';
 import { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { RealtimeProvider } from './contexts/RealtimeContext';
 import { LoadingProvider } from './contexts/LoadingContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 
@@ -13,7 +14,7 @@ import Footer from './components/layout/Footer';
 import Sidebar from './components/layout/Sidebar';
 import AdminLayout from './layouts/AdminLayout';
 import LoadingSpinner from './components/ui/LoadingSpinner';
-import EmailVerificationBanner from './components/EmailVerificationBanner';
+import EnhancedEmailVerification from './components/EnhancedEmailVerification';
 import EmailVerificationRequired from './components/EmailVerificationRequired';
 
 // Public Pages
@@ -194,7 +195,7 @@ const DashboardLayout = ({ children }) => {
           onMobileClose={() => setIsMobileSidebarOpen(false)}
         />
         <main className="flex-1 lg:ml-64 transition-all duration-300 relative z-10">
-          <EmailVerificationBanner />
+          <EnhancedEmailVerification />
           <div className="p-4 sm:p-6 lg:p-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -247,7 +248,8 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
-          <LoadingProvider>
+          <RealtimeProvider>
+            <LoadingProvider>
             <Router>
               <>
                 <div className="App min-h-screen bg-white dark:bg-dark-bg transition-colors duration-300 overflow-x-hidden">
@@ -699,7 +701,8 @@ function App() {
                 </div>
               </>
             </Router>
-          </LoadingProvider>
+            </LoadingProvider>
+          </RealtimeProvider>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

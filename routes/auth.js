@@ -404,6 +404,10 @@ router.post('/verify-email', [
     user.emailVerificationToken = undefined;
     await user.save();
 
+    // Broadcast real-time update to all connected clients
+    const realtimeService = require('../services/realtimeService');
+    await realtimeService.broadcastEmailVerification(user._id.toString(), true);
+
     res.json({
       success: true,
       message: 'Email verified successfully'

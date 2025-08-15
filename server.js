@@ -5,8 +5,12 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
+const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const PaymentLink = require('./models/PaymentLink');
+const realtimeService = require('./services/realtimeService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -190,8 +194,73 @@ app.use((err, req, res, next) => {
 
 
 
-app.listen(PORT, () => {
+// Create HTTP server
+const server = http.createServer(app);
+
+// Initialize Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  transports: ['websocket', 'polling']
+});
+
+// Socket.IO authentication middleware
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth.token;
+    if (!token) {
+      return next(new Error('Authentication token required'));
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const User = require('./models/User');
+    const user = await User.findById(decoded.id).select('-password');
+    
+    if (!user) {
+      return next(new Error('User not found'));
+    }
+
+    socket.userId = user._id.toString();
+    socket.user = user;
+    next();
+  } catch (error) {
+    next(new Error('Invalid authentication token'));
+  }
+});
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log(`User ${socket.userId} connected via Socket.IO`);
+  
+  // Add client to realtime service
+  realtimeService.addClient(socket.userId, socket);
+  
+  // Handle user status requests
+  socket.on('requestUserUpdate', async () => {
+    await realtimeService.sendUserData(socket.userId, socket);
+  });
+  
+  // Handle ping for connection health
+  socket.on('ping', () => {
+    socket.emit('pong', { timestamp: new Date().toISOString() });
+  });
+  
+  socket.on('disconnect', (reason) => {
+    console.log(`User ${socket.userId} disconnected: ${reason}`);
+    realtimeService.removeClient(socket.userId, socket);
+  });
+});
+
+// Make io available globally for other modules
+app.set('io', io);
+global.io = io;
+
+server.listen(PORT, () => {
   console.log(`PaySSD Server running on port ${PORT}`);
+  console.log(`Socket.IO enabled for real-time updates`);
 });
 
 // Schedule cleanup of expired payment links every hour (except test env)
