@@ -21,6 +21,7 @@ export const RealtimeProvider = ({ children }) => {
   const socketRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const pollingIntervalRef = useRef(null);
+  const heartbeatIntervalRef = useRef(null);
   const lastUpdateRef = useRef(null);
 
   // Initialize Socket.IO connection
@@ -130,11 +131,17 @@ export const RealtimeProvider = ({ children }) => {
 
   // Heartbeat to keep connection alive
   const startHeartbeat = () => {
-    const heartbeatInterval = setInterval(() => {
+    // Clear existing heartbeat if any
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+    }
+    
+    heartbeatIntervalRef.current = setInterval(() => {
       if (socketRef.current?.connected) {
         socketRef.current.emit('ping');
       } else {
-        clearInterval(heartbeatInterval);
+        clearInterval(heartbeatIntervalRef.current);
+        heartbeatIntervalRef.current = null;
       }
     }, 30000); // Every 30 seconds
   };
@@ -232,6 +239,13 @@ export const RealtimeProvider = ({ children }) => {
     }
     
     clearTimeout(reconnectTimeoutRef.current);
+    reconnectTimeoutRef.current = null;
+    
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = null;
+    }
+    
     stopFallbackPolling();
     setIsConnected(false);
     setConnectionStatus('disconnected');

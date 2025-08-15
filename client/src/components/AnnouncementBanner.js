@@ -48,6 +48,8 @@ const AnnouncementBanner = () => {
       });
     } catch (error) {
       console.error('Error fetching announcements:', error);
+      // Set empty array on error to prevent infinite loops
+      setAnnouncements([]);
     } finally {
       setLoading(false);
     }
