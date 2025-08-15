@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangleIcon, RefreshCwIcon } from '@heroicons/react/24/outline';
+import { ExclamationTriangleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -44,7 +44,7 @@ class ErrorBoundary extends React.Component {
           <div className="sm:mx-auto sm:w-full sm:max-w-md">
             <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
               <div className="text-center">
-                <AlertTriangleIcon className="mx-auto h-12 w-12 text-red-500 mb-4" />
+                <ExclamationTriangleIcon className="mx-auto h-12 w-12 text-red-500 mb-4" />
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">
                   Something went wrong
                 </h2>
@@ -57,7 +57,7 @@ class ErrorBoundary extends React.Component {
                     onClick={this.handleReload}
                     className="w-full flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   >
-                    <RefreshCwIcon className="h-4 w-4 mr-2" />
+                    <ArrowPathIcon className="h-4 w-4 mr-2" />
                     Reload Page
                   </button>
                   
