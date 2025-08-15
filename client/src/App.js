@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { RealtimeProvider } from './contexts/RealtimeContext';
 import { LoadingProvider } from './contexts/LoadingContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Layout Components
 import Navbar from './components/layout/Navbar';
@@ -246,12 +247,13 @@ const AnimatedRoutes = () => {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AuthProvider>
-          <RealtimeProvider>
-            <LoadingProvider>
-            <Router>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AuthProvider>
+            <RealtimeProvider>
+              <LoadingProvider>
+              <Router>
               <>
                 <div className="App min-h-screen bg-white dark:bg-dark-bg transition-colors duration-300 overflow-x-hidden">
                   <AnimatePresence mode="wait" initial={false}>
@@ -711,12 +713,13 @@ function App() {
                   />
                 </div>
               </>
-            </Router>
-            </LoadingProvider>
-          </RealtimeProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+              </Router>
+              </LoadingProvider>
+            </RealtimeProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
