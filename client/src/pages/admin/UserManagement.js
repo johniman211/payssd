@@ -550,25 +550,27 @@ const UserManagement = () => {
           <h2 className="text-lg font-semibold text-gray-900">Users</h2>
         </div>
         <div className="card-body">
-          <div className="overflow-x-auto">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>User</th>
-                  <th>Contact</th>
-                  <th>Business</th>
-                  <th>Role</th>
-                  <th>Status</th>
-                  <th>KYC</th>
-                  <th>Balance</th>
-                  <th>Joined</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((user) => (
-                  <tr key={user.id}>
-                    <td>
+          {/* Desktop Table View */}
+          <div className="hidden lg:block overflow-x-auto">
+            <div className="min-w-full">
+              <table className="table w-full min-w-[1200px]">
+              <thead className="table-header">
+                  <tr>
+                    <th className="table-header-cell">User</th>
+                    <th className="table-header-cell">Contact</th>
+                    <th className="table-header-cell">Business</th>
+                    <th className="table-header-cell">Role</th>
+                    <th className="table-header-cell">Status</th>
+                    <th className="table-header-cell">KYC</th>
+                    <th className="table-header-cell">Balance</th>
+                    <th className="table-header-cell">Joined</th>
+                    <th className="table-header-cell min-w-[200px]">Actions</th>
+                  </tr>
+                </thead>
+              <tbody className="table-body">
+                  {filteredUsers.map((user) => (
+                  <tr key={user._id} className="table-row">
+                    <td className="table-cell">
                       <div className="flex items-center">
                         <div className="flex-shrink-0">
                           <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
@@ -583,13 +585,13 @@ const UserManagement = () => {
                         </div>
                       </div>
                     </td>
-                    <td>
+                    <td className="table-cell">
                       <div>
                         <p className="text-sm text-gray-900">{user.email}</p>
                         <p className="text-xs text-gray-500">{user.phone}</p>
                       </div>
                     </td>
-                    <td>
+                    <td className="table-cell">
                       <div>
                         <p className="text-sm font-medium text-gray-900">
                           {user.businessName || 'N/A'}
@@ -597,17 +599,17 @@ const UserManagement = () => {
                         <p className="text-xs text-gray-500">{user.businessType || 'N/A'}</p>
                       </div>
                     </td>
-                    <td>
+                    <td className="table-cell">
                       <span className={getRoleBadge(user.role)}>
                         {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                       </span>
                     </td>
-                    <td>
+                    <td className="table-cell">
                       <span className={getStatusBadge(user.isActive)}>
                         {user.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td>
+                    <td className="table-cell">
                       <div className="flex items-center">
                         {getKycIcon(user.kycStatus)}
                         <span className={`ml-2 ${getKycBadge(user.kycStatus)}`}>
@@ -615,17 +617,17 @@ const UserManagement = () => {
                         </span>
                       </div>
                     </td>
-                    <td>
+                    <td className="table-cell">
                       <span className="text-sm font-medium text-gray-900">
                         {formatCurrency(user.balance || 0)}
                       </span>
                     </td>
-                    <td>
+                    <td className="table-cell">
                       <span className="text-sm text-gray-500">
                         {formatDate(user.createdAt)}
                       </span>
                     </td>
-                    <td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 min-w-[200px]">
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => openUserModal(user)}
@@ -663,7 +665,119 @@ const UserManagement = () => {
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="lg:hidden space-y-4">
+            {filteredUsers.map((user) => (
+              <motion.div
+                key={user._id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                      <UserIcon className="h-5 w-5 text-gray-600" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-gray-900">
+                        {user.firstName} {user.lastName}
+                      </h3>
+                      <p className="text-xs text-gray-500">{user.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <button
+                      onClick={() => openUserModal(user)}
+                      className="btn btn-sm btn-secondary"
+                      title="View Details"
+                    >
+                      <EyeIcon className="h-4 w-4" />
+                    </button>
+                    
+                    {user.role !== 'admin' && (
+                      <>
+                        <button
+                          onClick={() => user.isActive ? openDeactivateModal(user) : handleToggleUserStatus(user.id, user.isActive)}
+                          className={`btn btn-sm ${user.isActive ? 'btn-warning' : 'btn-success'}`}
+                          title={user.isActive ? 'Deactivate' : 'Activate'}
+                        >
+                          {user.isActive ? (
+                            <ShieldExclamationIcon className="h-4 w-4" />
+                          ) : (
+                            <ShieldCheckIcon className="h-4 w-4" />
+                          )}
+                        </button>
+                        
+                        <button
+                          onClick={() => handleDeleteUser(user.id)}
+                          className="btn btn-sm btn-danger"
+                          title="Delete User"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <p className="text-gray-500">Phone</p>
+                    <p className="text-gray-900">{user.phone}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">City</p>
+                    <p className="text-gray-900">{user.city}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Role</p>
+                    <span className={getRoleBadge(user.role)}>
+                      {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Status</p>
+                    <span className={getStatusBadge(user.isActive)}>
+                      {user.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">KYC</p>
+                    <div className="flex items-center">
+                      {getKycIcon(user.kycStatus)}
+                      <span className={`ml-1 ${getKycBadge(user.kycStatus)}`}>
+                        {user.kycStatus.charAt(0).toUpperCase() + user.kycStatus.slice(1)}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Balance</p>
+                    <p className="text-gray-900 font-medium">
+                      {formatCurrency(user.balance || 0)}
+                    </p>
+                  </div>
+                </div>
+                
+                {user.businessName && (
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <p className="text-xs text-gray-500">Business</p>
+                    <p className="text-sm text-gray-900">{user.businessName}</p>
+                    <p className="text-xs text-gray-500">{user.businessType}</p>
+                  </div>
+                )}
+                
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <p className="text-xs text-gray-500">
+                    Joined {formatDate(user.createdAt)}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
           </div>
           
           {filteredUsers.length === 0 && (

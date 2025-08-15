@@ -266,6 +266,7 @@ code {
 /* Table Styles */
 .table {
   @apply min-w-full divide-y divide-gray-200 dark:divide-dark-border;
+  min-width: 1200px; /* Ensure table has minimum width for all columns */
 }
 
 .table-header {
@@ -282,6 +283,30 @@ code {
 
 .table-header-cell {
   @apply px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-dark-text-secondary uppercase tracking-wider;
+}
+
+/* Admin Layout Improvements */
+.admin-content {
+  @apply w-full overflow-x-auto;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+.admin-content::-webkit-scrollbar {
+  height: 8px;
+}
+
+.admin-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-content::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.admin-content::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 
 /* Loading Spinner */
