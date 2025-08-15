@@ -25,9 +25,10 @@ import {
   UsersIcon as UsersIconSolid,
   ChartBarIcon as ChartBarIconSolid,
   ShieldCheckIcon as ShieldCheckIconSolid,
-  ClipboardDocumentListIcon as ClipboardDocumentListIconSolid
+  ClipboardDocumentListIcon as ClipboardDocumentListIconSolid,
+  MegaphoneIcon as MegaphoneIconSolid
 } from '@heroicons/react/24/solid';
-import { CheckCircleIcon, ClockIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, ClockIcon, ExclamationTriangleIcon, MegaphoneIcon } from '@heroicons/react/24/outline';
 
 const Sidebar = ({ isAdmin = false, isMobileOpen = false, onMobileClose }) => {
   const location = useLocation();
@@ -115,6 +116,13 @@ const Sidebar = ({ isAdmin = false, isMobileOpen = false, onMobileClose }) => {
       icon: BanknotesIcon,
       iconSolid: BanknotesIconSolid,
       current: location.pathname === '/admin/payouts'
+    },
+    {
+      name: 'Announcements',
+      href: '/admin/announcements',
+      icon: MegaphoneIcon,
+      iconSolid: MegaphoneIconSolid,
+      current: location.pathname === '/admin/announcements'
     }
   ];
 

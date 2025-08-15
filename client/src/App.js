@@ -67,6 +67,7 @@ import PayoutManagement from './pages/admin/PayoutManagement';
 import BlogManagement from './pages/admin/BlogManagement';
 import JobManagement from './pages/admin/JobManagement';
 import SystemSettings from './pages/admin/SystemSettings';
+import AnnouncementManager from './components/admin/AnnouncementManager';
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -652,6 +653,16 @@ function App() {
                       <ProtectedRoute adminOnly>
                         <AdminLayout>
                           <SystemSettings />
+                        </AdminLayout>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/announcements"
+                    element={
+                      <ProtectedRoute adminOnly>
+                        <AdminLayout>
+                          <AnnouncementManager />
                         </AdminLayout>
                       </ProtectedRoute>
                     }

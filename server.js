@@ -108,6 +108,7 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/payouts', require('./routes/payouts'));
 app.use('/api/blog', require('./routes/blog'));
 app.use('/api/jobs', require('./routes/jobs'));
+app.use('/api/announcements', require('./routes/announcements'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
