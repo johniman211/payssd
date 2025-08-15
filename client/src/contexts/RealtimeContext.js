@@ -121,7 +121,7 @@ const RealtimeProviderInner = ({ children }) => {
         // Check if it's a token-related error
         if (error.message?.includes('token') || error.message?.includes('auth')) {
           console.log('🔑 Token-related error, clearing session...');
-          TokenStorage.clearToken();
+          TokenStorage.removeToken();
           setUser(null);
           return;
         }
