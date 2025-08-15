@@ -152,8 +152,9 @@ const ProtectedRoute = ({ children, adminOnly = false, merchantOnly = false, req
 };
 
 // Public Route Component (redirect if authenticated)
-const PublicRoute = ({ children }) => {
+const PublicRoute = ({ children, allowAuthenticated = false }) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -163,7 +164,8 @@ const PublicRoute = ({ children }) => {
     );
   }
 
-  if (user) {
+  // Allow access to email verification page even for authenticated users
+  if (user && !allowAuthenticated && !location.pathname.startsWith('/verify-email')) {
     if (user.role === 'admin') {
       return <Navigate to="/admin" replace />;
     }
@@ -445,9 +447,11 @@ function App() {
                   <Route
                     path="/verify-email/:token"
                     element={
-                      <PublicLayout showNavbar={false} showFooter={false}>
-                        <EmailVerificationPage />
-                      </PublicLayout>
+                      <PublicRoute>
+                        <PublicLayout showNavbar={false} showFooter={false}>
+                          <EmailVerificationPage />
+                        </PublicLayout>
+                      </PublicRoute>
                     }
                   />
 
