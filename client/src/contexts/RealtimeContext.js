@@ -120,10 +120,23 @@ const RealtimeProviderInner = ({ children }) => {
         
         // Check if it's a token-related error
         if (error.message?.includes('token') || error.message?.includes('auth')) {
-          console.log('🔑 Token-related error, clearing session...');
-          TokenStorage.removeToken();
-          setUser(null);
-          return;
+          console.log('🔑 Token-related error detected');
+          
+          // Only clear session after multiple failed attempts for auth errors
+          if (typeof error.attempts === 'undefined') {
+            error.attempts = 1;
+          } else {
+            error.attempts++;
+          }
+          
+          if (error.attempts >= 3) {
+            console.log('🔑 Token-related error persists after retries, clearing session...');
+            TokenStorage.removeToken();
+            setUser(null);
+            return;
+          } else {
+            console.log(`🔑 Auth error attempt ${error.attempts}/3, retrying...`);
+          }
         }
         
         // Start fallback polling
@@ -231,14 +244,15 @@ const RealtimeProviderInner = ({ children }) => {
         });
         
         if (response.ok) {
-          const userData = await response.json();
+          const data = await response.json();
+          const profileUser = data?.user || data; // Support both { user: {...} } and direct user object
           
           // Check if user data has changed
-          const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-          if (JSON.stringify(currentUser) !== JSON.stringify(userData)) {
+          const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+          if (JSON.stringify(currentUser) !== JSON.stringify(profileUser)) {
             handleUserUpdate({
               type: 'POLLING_UPDATE',
-              user: userData,
+              user: profileUser,
               timestamp: new Date().toISOString()
             });
           }
@@ -254,6 +268,8 @@ const RealtimeProviderInner = ({ children }) => {
       }
     }, 15000); // Every 15 seconds (reduced frequency)
   };
+
+
 
   // Stop fallback polling
   const stopFallbackPolling = () => {
@@ -292,10 +308,11 @@ const RealtimeProviderInner = ({ children }) => {
         });
         
         if (response.ok) {
-          const userData = await response.json();
+          const data = await response.json();
+          const profileUser = data?.user || data; // Support both { user: {...} } and direct user object
           handleUserUpdate({
             type: 'MANUAL_REFRESH',
-            user: userData,
+            user: profileUser,
             timestamp: new Date().toISOString()
           });
         }
@@ -343,30 +360,48 @@ const RealtimeProviderInner = ({ children }) => {
   useEffect(() => {
     if (!user) return;
 
+    let validationAttempts = 0;
+    const maxRetries = 3;
+
     const validateToken = () => {
       try {
         const token = TokenStorage.getToken();
         if (!token && user) {
-          console.log('🔑 Token expired, logging out user...');
-          setUser(null);
-          localStorage.removeItem('user');
-          cleanup();
+          validationAttempts++;
+          
+          // Only clear session after multiple failed attempts
+          if (validationAttempts >= maxRetries) {
+            console.log('🔑 Token expired after multiple validation attempts, logging out user...');
+            setUser(null);
+            localStorage.removeItem('user');
+            cleanup();
+          } else {
+            console.warn(`Token validation failed (attempt ${validationAttempts}/${maxRetries}), retrying...`);
+          }
+        } else if (token && validationAttempts > 0) {
+          // Reset attempts if token is valid
+          validationAttempts = 0;
         }
       } catch (error) {
         handleError(error, 'tokenValidation');
-        // Gracefully handle token validation errors
-        try {
-          setUser(null);
-          localStorage.removeItem('user');
-          cleanup();
-        } catch (cleanupError) {
-          console.error('Cleanup error:', cleanupError);
+        validationAttempts++;
+        
+        // Only clear session after multiple failed attempts and not for network errors
+        if (validationAttempts >= maxRetries && !error.message?.includes('network')) {
+          try {
+            console.log('Token validation failed multiple times, clearing session');
+            setUser(null);
+            localStorage.removeItem('user');
+            cleanup();
+          } catch (cleanupError) {
+            console.error('Cleanup error:', cleanupError);
+          }
         }
       }
     };
 
-    // Check token validity every 30 seconds
-    const tokenCheckInterval = setInterval(validateToken, 30000);
+    // Check token validity every 60 seconds (reduced frequency)
+    const tokenCheckInterval = setInterval(validateToken, 60000);
 
     return () => {
       try {

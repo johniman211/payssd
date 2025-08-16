@@ -37,8 +37,10 @@ if ('performance' in window) {
 const root = ReactDOM.createRoot(document.getElementById('root'));
 
 // Render the app
+// Note: Temporarily disable StrictMode to avoid double-invoking effects while diagnosing white screen issues.
+// Consider re-enabling once effects are idempotent.
 root.render(
-  <React.StrictMode>
+  // <React.StrictMode>
     <App />
-  </React.StrictMode>
+  // </React.StrictMode>
 );

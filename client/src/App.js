@@ -135,6 +135,7 @@ const ProtectedRoute = ({ children, adminOnly = false, merchantOnly = false, req
   }
 
   if (!user) {
+    // Show a safe fallback instead of rendering nothing during edge cases
     return <Navigate to="/login" replace />;
   }
 
