@@ -94,7 +94,9 @@ const AnnouncementManager = () => {
       fetchAnnouncements();
     } catch (error) {
       console.error('Error saving announcement:', error);
-      toast.error(error.response?.data?.message || 'Failed to save announcement');
+      const firstValidationMsg = error.response?.data?.errors?.[0]?.msg;
+      const message = firstValidationMsg || error.response?.data?.message || 'Failed to save announcement';
+      toast.error(message);
     }
   };
 
