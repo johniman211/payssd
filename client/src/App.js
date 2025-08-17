@@ -17,6 +17,7 @@ import AdminLayout from './layouts/AdminLayout';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 import EnhancedEmailVerification from './components/EnhancedEmailVerification';
 import EmailVerificationRequired from './components/EmailVerificationRequired';
+import AnnouncementBanner from './components/AnnouncementBanner';
 
 // Public Pages
 import LandingPage from './pages/public/LandingPage';
@@ -187,6 +188,10 @@ const DashboardLayout = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-dark-bg transition-colors duration-300">
+      {/* Global Announcement Banner - sticky on top */}
+      <div className="sticky top-0 z-[60]">
+        <AnnouncementBanner />
+      </div>
       <Navbar 
         onMobileMenuToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
         isMobileSidebarOpen={isMobileSidebarOpen}
@@ -218,6 +223,10 @@ const DashboardLayout = ({ children }) => {
 const PublicLayout = ({ children, showNavbar = true, showFooter = true }) => {
   return (
     <div className="min-h-screen bg-white dark:bg-dark-bg transition-colors duration-300">
+      {/* Global Announcement Banner - sticky on top */}
+      <div className="sticky top-0 z-[60]">
+        <AnnouncementBanner />
+      </div>
       {showNavbar && <Navbar />}
       <main className={`${showNavbar ? 'pt-16' : ''} transition-all duration-300`}>
         <motion.div

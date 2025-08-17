@@ -157,9 +157,6 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Announcement Banner */}
-      <AnnouncementBanner />
-      
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         {/* Background Elements */}
@@ -639,7 +636,7 @@ const LandingPage = () => {
                         {plan.price === 'Custom' ? 'Contact Sales' : 'Get Started'}
                       </span>
                       {!plan.popular && (
-                        <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       )}
                     </motion.button>
                   </Link>
