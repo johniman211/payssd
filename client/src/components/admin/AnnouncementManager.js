@@ -15,6 +15,7 @@ import {
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import LoadingSpinner from '../ui/LoadingSpinner';
+import { TokenStorage } from '../../utils/security';
 
 const AnnouncementManager = () => {
   const [announcements, setAnnouncements] = useState([]);
@@ -44,7 +45,7 @@ const AnnouncementManager = () => {
     try {
       const response = await axios.get('/api/announcements', {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${TokenStorage.getToken(TokenStorage.getCurrentRole())}`
         }
       });
       // Handle the nested response structure
@@ -74,14 +75,14 @@ const AnnouncementManager = () => {
       if (editingAnnouncement) {
         await axios.put(`/api/announcements/${editingAnnouncement._id}`, payload, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
+            Authorization: `Bearer ${TokenStorage.getToken(TokenStorage.getCurrentRole())}`
           }
         });
         toast.success('Announcement updated successfully');
       } else {
         await axios.post('/api/announcements', payload, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
+            Authorization: `Bearer ${TokenStorage.getToken(TokenStorage.getCurrentRole())}`
           }
         });
         toast.success('Announcement created successfully');
@@ -121,7 +122,7 @@ const AnnouncementManager = () => {
     try {
       await axios.delete(`/api/announcements/${id}`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${TokenStorage.getToken(TokenStorage.getCurrentRole())}`
         }
       });
       toast.success('Announcement deleted successfully');
@@ -136,7 +137,7 @@ const AnnouncementManager = () => {
     try {
       await axios.patch(`/api/announcements/${id}/toggle`, {}, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${TokenStorage.getToken(TokenStorage.getCurrentRole())}`
         }
       });
       toast.success(`Announcement ${currentStatus ? 'deactivated' : 'activated'} successfully`);
