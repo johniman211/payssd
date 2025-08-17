@@ -198,6 +198,13 @@ const UserManagement = () => {
       const config = {
         headers: {
           Authorization: `Bearer ${token}`
+        },
+        // axios.delete can include a body via config.data
+        data: {
+          // include a reason if available in UI state; otherwise omit
+          reason: deactivationReason && deactivationReason.trim().length >= 5 ? deactivationReason.trim() : undefined,
+          // optional confirmation supported by backend validator
+          confirmation: 'DELETE'
         }
       };
       
@@ -220,7 +227,9 @@ const UserManagement = () => {
       setShowModal(false);
     } catch (err) {
       console.error('Error deleting user:', err);
-      toast.error(err.response?.data?.message || 'Failed to delete user');
+      const serverMsg = err.response?.data?.message;
+      const validation = err.response?.data?.errors?.map(e => e.msg).join('\n');
+      toast.error(serverMsg || validation || 'Failed to delete user');
     } finally {
       setProcessing(false);
     }

@@ -772,8 +772,9 @@ router.delete('/users/:userId', [
       });
     }
 
-    // Check if user has remaining balance
-    if (user.balance.available > 0 || user.balance.pending > 0) {
+    // Check if user has remaining balance (guard against missing balance object)
+    const hasBalance = user.balance && ((user.balance.available || 0) > 0 || (user.balance.pending || 0) > 0);
+    if (hasBalance) {
       return res.status(400).json({
         success: false,
         message: 'Cannot delete user with remaining balance. Please process payouts first.'
@@ -783,10 +784,33 @@ router.delete('/users/:userId', [
     // Instead of hard delete, deactivate and anonymize the user to preserve transaction history
     user.isActive = false;
     user.email = `deleted_${Date.now()}_${user.email}`;
-    user.profile.firstName = 'Deleted';
-    user.profile.lastName = 'User';
-    user.profile.phoneNumber = 'deleted';
-    user.profile.businessName = 'Deleted Business';
+
+    // Ensure profile exists and contains required fields to satisfy schema validation
+    if (!user.profile) {
+      user.profile = {
+        firstName: 'Deleted',
+        lastName: 'User',
+        phoneNumber: 'deleted',
+        businessName: 'Deleted Business',
+        address: {
+          city: 'Juba',
+          country: 'South Sudan'
+        }
+      };
+    } else {
+      user.profile.firstName = 'Deleted';
+      user.profile.lastName = 'User';
+      user.profile.phoneNumber = 'deleted';
+      user.profile.businessName = 'Deleted Business';
+      // Ensure address exists with required fields
+      if (!user.profile.address) {
+        user.profile.address = { city: 'Juba', country: 'South Sudan' };
+      } else {
+        if (!user.profile.address.city) user.profile.address.city = 'Juba';
+        if (!user.profile.address.country) user.profile.address.country = 'South Sudan';
+      }
+    }
+
     user.password = 'deleted_password_' + Date.now();
     user.apiKeys = undefined;
     user.updatedAt = new Date();
