@@ -1107,13 +1107,14 @@ router.get('/payouts', [
     // Get payouts with merchant details and stats
     const [payouts, totalCount, stats] = await Promise.all([
       Payout.find(filter)
-        .populate('merchant', 'email profile.firstName profile.lastName profile.businessName')
+        .populate('merchant', 'email profile.firstName profile.lastName profile.businessName profile.phone balance')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit))
         .lean(),
       Payout.countDocuments(filter),
       Payout.aggregate([
+        { $match: filter },
         {
           $group: {
             _id: null,
@@ -1137,8 +1138,17 @@ router.get('/payouts', [
             pendingAmount: {
               $sum: { $cond: [{ $eq: ['$status', 'pending'] }, '$amount', 0] }
             },
+            processingAmount: {
+              $sum: { $cond: [{ $eq: ['$status', 'processing'] }, '$amount', 0] }
+            },
             completedAmount: {
               $sum: { $cond: [{ $eq: ['$status', 'completed'] }, '$amount', 0] }
+            },
+            failedAmount: {
+              $sum: { $cond: [{ $eq: ['$status', 'failed'] }, '$amount', 0] }
+            },
+            cancelledAmount: {
+              $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, '$amount', 0] }
             }
           }
         }
@@ -1149,6 +1159,8 @@ router.get('/payouts', [
     const statsData = stats[0] || {};
     statsData.approved = statsData.processing || 0;
     statsData.rejected = (statsData.failed || 0) + (statsData.cancelled || 0);
+    statsData.approvedAmount = statsData.processingAmount || 0;
+    statsData.rejectedAmount = (statsData.failedAmount || 0) + (statsData.cancelledAmount || 0);
 
     if (format === 'csv') {
       const csvData = payouts.map(p => ({
@@ -1161,7 +1173,7 @@ router.get('/payouts', [
         'Merchant Name': `${p.merchant?.profile?.firstName} ${p.merchant?.profile?.lastName}`,
         'Business Name': p.merchant?.profile?.businessName,
         'Created At': p.createdAt,
-        'Processed At': p.processedAt
+        'Processed At': p.completedAt
       }));
 
       res.setHeader('Content-Type', 'text/csv');
@@ -1188,7 +1200,12 @@ router.get('/payouts', [
           rejected: statsData.rejected || 0,
           totalAmount: statsData.totalAmount || 0,
           pendingAmount: statsData.pendingAmount || 0,
+          processingAmount: statsData.processingAmount || 0,
           completedAmount: statsData.completedAmount || 0,
+          failedAmount: statsData.failedAmount || 0,
+          cancelledAmount: statsData.cancelledAmount || 0,
+          approvedAmount: statsData.approvedAmount || 0,
+          rejectedAmount: statsData.rejectedAmount || 0,
           processing: statsData.processing || 0,
           failed: statsData.failed || 0,
           cancelled: statsData.cancelled || 0
