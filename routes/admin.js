@@ -705,7 +705,8 @@ router.put('/users/:userId/deactivate', [
 
     res.json({
       success: true,
-      message: 'User has been successfully deleted and anonymized'
+      message: 'User deactivated successfully',
+      user: { _id: user._id, email: user.email, isActive: user.isActive }
     });
 
     // Send admin deletion notification (non-blocking)
@@ -718,64 +719,6 @@ router.put('/users/:userId/deactivate', [
     } catch (adminEmailErr) {
       console.error('Error scheduling admin user deleted email:', adminEmailErr);
     }
-
-  } catch (error) {
-    console.error('Delete user error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Deactivate user (admin only)
-router.put('/users/:userId/deactivate', [
-  auth,
-  adminAuth,
-  body('reason')
-    .optional()
-    .trim()
-    .isLength({ min: 5, max: 500 })
-    .withMessage('Reason must be between 5 and 500 characters')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
-    }
-
-    const { userId } = req.params;
-    const { reason } = req.body;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-
-    if (user.role === 'admin') {
-      return res.status(400).json({ success: false, message: 'Cannot modify admin user status' });
-    }
-
-    user.isActive = false;
-    user.updatedAt = new Date();
-
-    if (reason) {
-      user.adminNotes = user.adminNotes || [];
-      user.adminNotes.push({
-        note: `Status changed to inactive: ${reason}`,
-        addedBy: req.user.id,
-        addedAt: new Date()
-      });
-    }
-
-    await user.save();
-
-    res.json({
-      success: true,
-      message: 'User deactivated successfully',
-      user: { _id: user._id, email: user.email, isActive: user.isActive }
-    });
 
   } catch (error) {
     console.error('Deactivate user error:', error);
