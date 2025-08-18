@@ -486,8 +486,8 @@ const sendAdminUserDeletedEmail = async (deletedUser, adminUser, reason) => {
     // Check if admin email alerts are enabled
     const settings = await getSettings();
      if (!settings.notifications.adminEmailAlerts) {
-       return { success: true, skipped: true, reason: 'Admin email alerts disabled' };
-    }
+        return { success: true, skipped: true, reason: 'Admin email alerts disabled' };
+      }
     
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@payssd.com';
     
@@ -571,8 +571,8 @@ const sendAdminPaymentNotificationEmail = async (transaction, merchant) => {
     // Check if admin email alerts are enabled
     const settings = await getSettings();
      if (!settings.notifications.adminEmailAlerts) {
-       return { success: true, skipped: true, reason: 'Admin email alerts disabled' };
-    }
+        return { success: true, skipped: true, reason: 'Admin email alerts disabled' };
+      }
     
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@payssd.com';
     

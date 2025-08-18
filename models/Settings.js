@@ -7,14 +7,15 @@ const settingsSchema = new mongoose.Schema({
     default: 'system_settings'
   },
   
-  platform: {
-    name: {
+  // General Settings (Platform Information & Controls)
+  general: {
+    platformName: {
       type: String,
       default: 'PaySSD'
     },
-    description: {
+    platformDescription: {
       type: String,
-      default: 'South Sudan Payment Gateway'
+      default: 'Secure payment gateway for South Sudan'
     },
     supportEmail: {
       type: String,
@@ -27,62 +28,116 @@ const settingsSchema = new mongoose.Schema({
     maintenanceMode: {
       type: Boolean,
       default: false
+    },
+    registrationEnabled: {
+      type: Boolean,
+      default: true
+    },
+    kycRequired: {
+      type: Boolean,
+      default: true
+    },
+    autoApproveKyc: {
+      type: Boolean,
+      default: false
     }
   },
   
-  fees: {
+  // Payment Settings
+  payments: {
+    mtnMomoEnabled: {
+      type: Boolean,
+      default: true
+    },
+    digicashEnabled: {
+      type: Boolean,
+      default: true
+    },
+    minPaymentAmount: {
+      type: Number,
+      default: 100,
+      min: 0
+    },
+    maxPaymentAmount: {
+      type: Number,
+      default: 1000000,
+      min: 0
+    },
     transactionFeePercentage: {
       type: Number,
       default: 2.5,
       min: 0,
       max: 100
     },
-    minimumFee: {
+    fixedTransactionFee: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    paymentTimeout: {
+      type: Number,
+      default: 300,
+      min: 60,
+      max: 3600
+    },
+    autoRefundEnabled: {
+      type: Boolean,
+      default: true
+    },
+    refundTimeout: {
+      type: Number,
+      default: 24,
+      min: 1,
+      max: 168
+    }
+  },
+  
+  // Payout Settings
+  payouts: {
+    minPayoutAmount: {
+      type: Number,
+      default: 1000,
+      min: 0
+    },
+    maxPayoutAmount: {
+      type: Number,
+      default: 5000000,
+      min: 0
+    },
+    payoutFeePercentage: {
       type: Number,
       default: 1.0,
+      min: 0,
+      max: 100
+    },
+    fixedPayoutFee: {
+      type: Number,
+      default: 50,
       min: 0
     },
-    maximumFee: {
-      type: Number,
-      default: 100.0,
-      min: 0
+    autoApprovePayouts: {
+      type: Boolean,
+      default: false
     },
-    payoutFee: {
+    payoutProcessingDays: {
       type: Number,
-      default: 5.0,
-      min: 0
+      default: 3,
+      min: 1,
+      max: 30
+    },
+    requireBankVerification: {
+      type: Boolean,
+      default: true
     }
   },
   
-  limits: {
-    dailyTransactionLimit: {
-      type: Number,
-      default: 10000,
-      min: 0
-    },
-    monthlyTransactionLimit: {
-      type: Number,
-      default: 100000,
-      min: 0
-    },
-    minimumTransactionAmount: {
-      type: Number,
-      default: 1,
-      min: 0
-    },
-    maximumTransactionAmount: {
-      type: Number,
-      default: 50000,
-      min: 0
-    }
-  },
-  
+  // Security Settings
   security: {
     sessionTimeout: {
       type: Number,
       default: 30,
       min: 5,
-      max: 1440 // 24 hours
+      max: 480
     },
     maxLoginAttempts: {
       type: Number,
@@ -90,28 +145,85 @@ const settingsSchema = new mongoose.Schema({
       min: 1,
       max: 20
     },
+    lockoutDuration: {
+      type: Number,
+      default: 15,
+      min: 1,
+      max: 1440
+    },
+    requireTwoFactor: {
+      type: Boolean,
+      default: false
+    },
     passwordMinLength: {
       type: Number,
       default: 8,
       min: 6,
       max: 50
     },
-    requireTwoFactor: {
+    passwordRequireSpecial: {
       type: Boolean,
-      default: false
+      default: true
     },
-    ipWhitelisting: {
+    passwordRequireNumbers: {
+      type: Boolean,
+      default: true
+    },
+    passwordRequireUppercase: {
+      type: Boolean,
+      default: true
+    },
+    apiRateLimit: {
+      type: Number,
+      default: 100,
+      min: 10,
+      max: 10000
+    },
+    ipWhitelistEnabled: {
       type: Boolean,
       default: false
     }
   },
   
+  // Notification Settings
   notifications: {
-    emailNotifications: {
+    emailNotificationsEnabled: {
       type: Boolean,
       default: true
     },
-    smsNotifications: {
+    smsNotificationsEnabled: {
+      type: Boolean,
+      default: true
+    },
+    webhookNotificationsEnabled: {
+      type: Boolean,
+      default: true
+    },
+    adminEmailAlerts: {
+      type: Boolean,
+      default: true
+    },
+    transactionAlerts: {
+      type: Boolean,
+      default: true
+    },
+    securityAlerts: {
+      type: Boolean,
+      default: true
+    },
+    systemMaintenanceAlerts: {
+      type: Boolean,
+      default: true
+    },
+    dailyReports: {
+      type: Boolean,
+      default: true
+    },
+    weeklyReports: {
+      type: Boolean,
+      default: true
+    },
+    monthlyReports: {
       type: Boolean,
       default: true
     },
@@ -126,10 +238,56 @@ const settingsSchema = new mongoose.Schema({
       default: 30,
       min: 5,
       max: 300
+    }
+  },
+  
+  // Integration Settings
+  integrations: {
+    mtnMomoApiKey: {
+      type: String,
+      default: ''
     },
-    adminEmailAlerts: {
+    mtnMomoSecretKey: {
+      type: String,
+      default: ''
+    },
+    mtnMomoSandboxMode: {
       type: Boolean,
       default: true
+    },
+    digicashApiKey: {
+      type: String,
+      default: ''
+    },
+    digicashSecretKey: {
+      type: String,
+      default: ''
+    },
+    digicashSandboxMode: {
+      type: Boolean,
+      default: true
+    },
+    emailServiceProvider: {
+      type: String,
+      default: 'sendgrid',
+      enum: ['sendgrid', 'mailgun', 'ses', 'smtp']
+    },
+    emailApiKey: {
+      type: String,
+      default: ''
+    },
+    smsServiceProvider: {
+      type: String,
+      default: 'twilio',
+      enum: ['twilio', 'nexmo', 'africastalking']
+    },
+    smsApiKey: {
+      type: String,
+      default: ''
+    },
+    smsApiSecret: {
+      type: String,
+      default: ''
     }
   },
   
