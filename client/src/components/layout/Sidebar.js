@@ -12,7 +12,9 @@ import {
   UsersIcon,
   ChartBarIcon,
   ShieldCheckIcon,
-  ClipboardDocumentListIcon
+  ClipboardDocumentListIcon,
+  DocumentTextIcon,
+  BriefcaseIcon
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeIconSolid,
@@ -26,7 +28,9 @@ import {
   ChartBarIcon as ChartBarIconSolid,
   ShieldCheckIcon as ShieldCheckIconSolid,
   ClipboardDocumentListIcon as ClipboardDocumentListIconSolid,
-  MegaphoneIcon as MegaphoneIconSolid
+  MegaphoneIcon as MegaphoneIconSolid,
+  DocumentTextIcon as DocumentTextIconSolid,
+  BriefcaseIcon as BriefcaseIconSolid
 } from '@heroicons/react/24/solid';
 import { CheckCircleIcon, ClockIcon, ExclamationTriangleIcon, MegaphoneIcon } from '@heroicons/react/24/outline';
 
@@ -123,6 +127,20 @@ const Sidebar = ({ isAdmin = false, isMobileOpen = false, onMobileClose }) => {
       icon: MegaphoneIcon,
       iconSolid: MegaphoneIconSolid,
       current: location.pathname === '/admin/announcements'
+    },
+    {
+      name: 'Blog Management',
+      href: '/admin/blog',
+      icon: DocumentTextIcon,
+      iconSolid: DocumentTextIconSolid,
+      current: location.pathname === '/admin/blog'
+    },
+    {
+      name: 'Jobs Management',
+      href: '/admin/jobs',
+      icon: BriefcaseIcon,
+      iconSolid: BriefcaseIconSolid,
+      current: location.pathname === '/admin/jobs'
     }
   ];
 
