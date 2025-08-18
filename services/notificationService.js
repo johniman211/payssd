@@ -395,9 +395,9 @@ const sendKYCRejectedEmail = async (user, rejectionReason) => {
 const sendAdminNewUserEmail = async (newUser) => {
   try {
     // Check if admin email alerts are enabled
-    const settings = getSettings();
-    if (!settings.adminEmailAlerts) {
-      return { success: true, skipped: true, reason: 'Admin email alerts disabled' };
+    const settings = await getSettings();
+     if (!settings.notifications.adminEmailAlerts) {
+       return { success: true, skipped: true, reason: 'Admin email alerts disabled' };
     }
     
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@payssd.com';
@@ -484,9 +484,9 @@ const sendAdminNewUserEmail = async (newUser) => {
 const sendAdminUserDeletedEmail = async (deletedUser, adminUser, reason) => {
   try {
     // Check if admin email alerts are enabled
-    const settings = getSettings();
-    if (!settings.adminEmailAlerts) {
-      return { success: true, skipped: true, reason: 'Admin email alerts disabled' };
+    const settings = await getSettings();
+     if (!settings.notifications.adminEmailAlerts) {
+       return { success: true, skipped: true, reason: 'Admin email alerts disabled' };
     }
     
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@payssd.com';
@@ -569,9 +569,9 @@ const sendAdminUserDeletedEmail = async (deletedUser, adminUser, reason) => {
 const sendAdminPaymentNotificationEmail = async (transaction, merchant) => {
   try {
     // Check if admin email alerts are enabled
-    const settings = getSettings();
-    if (!settings.adminEmailAlerts) {
-      return { success: true, skipped: true, reason: 'Admin email alerts disabled' };
+    const settings = await getSettings();
+     if (!settings.notifications.adminEmailAlerts) {
+       return { success: true, skipped: true, reason: 'Admin email alerts disabled' };
     }
     
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@payssd.com';

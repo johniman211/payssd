@@ -1636,7 +1636,7 @@ router.put('/kyc-submissions/:id/reject', [auth, adminAuth], async (req, res) =>
 // Get system settings
 router.get('/settings', [auth, adminAuth], async (req, res) => {
   try {
-    const settings = getSettings();
+    const settings = await getSettings();
     res.json({
       success: true,
       settings
@@ -1656,7 +1656,7 @@ router.put('/settings', [auth, adminAuth], async (req, res) => {
       return res.status(400).json({ message: 'Invalid settings data' });
     }
 
-    const updatedSettings = updateSettings(settings);
+    const updatedSettings = await updateSettings(settings, req.user.id);
     console.log('Settings updated by admin:', req.user.email);
     console.log('New settings:', updatedSettings);
 
@@ -1667,7 +1667,7 @@ router.put('/settings', [auth, adminAuth], async (req, res) => {
     });
   } catch (error) {
     console.error('Update settings error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: error.message || 'Server error' });
   }
 });
 

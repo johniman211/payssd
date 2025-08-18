@@ -95,7 +95,18 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/payssd', 
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => console.log('MongoDB connected successfully'))
+.then(async () => {
+  console.log('MongoDB connected successfully');
+  
+  // Initialize settings on startup
+  try {
+    const Settings = require('./models/Settings');
+    await Settings.getSettings(); // This will create default settings if none exist
+    console.log('Settings initialized successfully');
+  } catch (error) {
+    console.error('Settings initialization error:', error);
+  }
+})
 .catch(err => console.error('MongoDB connection error:', err));
 
 // Routes
