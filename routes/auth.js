@@ -7,6 +7,7 @@ const { auth } = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const { sendAdminNewUserEmail } = require('../services/notificationService');
 
 const router = express.Router();
 
@@ -218,6 +219,17 @@ router.post('/register', [
         response: emailError.response,
         responseCode: emailError.responseCode
       });
+    }
+
+    // Send admin new user notification (non-blocking)
+    try {
+      // Basic gating: only send if ADMIN_EMAIL is configured
+      if (process.env.ADMIN_EMAIL) {
+        // Fire and forget to avoid delaying registration response
+        sendAdminNewUserEmail(user).catch(err => console.error('Admin new user email failed:', err?.message || err));
+      }
+    } catch (adminEmailErr) {
+      console.error('Error scheduling admin new user email:', adminEmailErr);
     }
 
     // Generate JWT token

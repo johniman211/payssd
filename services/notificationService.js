@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const axios = require('axios');
+const { getSettings } = require('./settingsStore');
 
 // Mock Email Service for development
 class MockEmailService {
@@ -390,6 +391,292 @@ const sendKYCRejectedEmail = async (user, rejectionReason) => {
   }
 };
 
+// Admin notification functions
+const sendAdminNewUserEmail = async (newUser) => {
+  try {
+    // Check if admin email alerts are enabled
+    const settings = getSettings();
+    if (!settings.adminEmailAlerts) {
+      return { success: true, skipped: true, reason: 'Admin email alerts disabled' };
+    }
+    
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@payssd.com';
+    
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #3b82f6; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+          <h1 style="margin: 0; font-size: 24px;">👤 New User Registration</h1>
+        </div>
+        
+        <div style="background-color: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb;">
+          <h2 style="color: #1f2937; margin-top: 0;">New merchant has registered</h2>
+          
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+            A new user has just registered on PaySSD and is ready to start accepting payments.
+          </p>
+          
+          <div style="background-color: white; padding: 20px; border-radius: 6px; border: 1px solid #d1d5db; margin: 20px 0;">
+            <h3 style="color: #1f2937; margin-top: 0;">User Details</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Name:</td>
+                <td style="padding: 8px 0; color: #1f2937; font-weight: 600;">${newUser.profile.firstName} ${newUser.profile.lastName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Email:</td>
+                <td style="padding: 8px 0; color: #1f2937;">${newUser.email}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Phone:</td>
+                <td style="padding: 8px 0; color: #1f2937;">${newUser.profile.phoneNumber}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Business:</td>
+                <td style="padding: 8px 0; color: #1f2937;">${newUser.profile.businessName || 'Individual Account'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Location:</td>
+                <td style="padding: 8px 0; color: #1f2937;">${newUser.profile.address.city}, ${newUser.profile.address.country}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Registered:</td>
+                <td style="padding: 8px 0; color: #1f2937;">${new Date(newUser.createdAt).toLocaleString('en-US', { timeZone: 'Africa/Juba' })}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <div style="background-color: #eff6ff; padding: 15px; border-radius: 6px; border-left: 4px solid #3b82f6; margin: 20px 0;">
+            <p style="margin: 0; color: #1e40af; font-weight: 500;">
+              💡 <strong>Next Steps:</strong> Monitor KYC submission and review when submitted. Provide support if needed.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.CLIENT_URL}/admin/users" 
+               style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
+              View All Users
+            </a>
+          </div>
+          
+          <p style="color: #6b7280; font-size: 14px; margin-bottom: 0;">
+            PaySSD Admin Notification System<br>
+            This is an automated notification
+          </p>
+        </div>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to: adminEmail,
+      subject: `🆕 New User Registration - ${newUser.profile.firstName} ${newUser.profile.lastName}`,
+      html: emailHtml
+    });
+
+    return { success: true };
+
+  } catch (error) {
+    console.error('Admin new user email error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+const sendAdminUserDeletedEmail = async (deletedUser, adminUser, reason) => {
+  try {
+    // Check if admin email alerts are enabled
+    const settings = getSettings();
+    if (!settings.adminEmailAlerts) {
+      return { success: true, skipped: true, reason: 'Admin email alerts disabled' };
+    }
+    
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@payssd.com';
+    
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #ef4444; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+          <h1 style="margin: 0; font-size: 24px;">🗑️ User Account Deleted</h1>
+        </div>
+        
+        <div style="background-color: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb;">
+          <h2 style="color: #1f2937; margin-top: 0;">User account has been deleted</h2>
+          
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+            A user account has been deleted from the PaySSD platform.
+          </p>
+          
+          <div style="background-color: white; padding: 20px; border-radius: 6px; border: 1px solid #d1d5db; margin: 20px 0;">
+            <h3 style="color: #1f2937; margin-top: 0;">Deleted User Details</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Name:</td>
+                <td style="padding: 8px 0; color: #1f2937; font-weight: 600;">${deletedUser.profile.firstName} ${deletedUser.profile.lastName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Email:</td>
+                <td style="padding: 8px 0; color: #1f2937;">${deletedUser.email}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Business:</td>
+                <td style="padding: 8px 0; color: #1f2937;">${deletedUser.profile.businessName || 'Individual Account'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Deleted by:</td>
+                <td style="padding: 8px 0; color: #1f2937;">${adminUser.profile.firstName} ${adminUser.profile.lastName} (${adminUser.email})</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Deleted at:</td>
+                <td style="padding: 8px 0; color: #1f2937;">${new Date().toLocaleString('en-US', { timeZone: 'Africa/Juba' })}</td>
+              </tr>
+            </table>
+          </div>
+          
+          ${reason ? `
+          <div style="background-color: #fef2f2; padding: 20px; border-radius: 6px; border-left: 4px solid #ef4444; margin: 20px 0;">
+            <h3 style="color: #991b1b; margin-top: 0;">Deletion Reason:</h3>
+            <p style="color: #7f1d1d; margin: 0; font-weight: 500;">${reason}</p>
+          </div>
+          ` : ''}
+          
+          <div style="background-color: #eff6ff; padding: 15px; border-radius: 6px; border-left: 4px solid #3b82f6; margin: 20px 0;">
+            <p style="margin: 0; color: #1e40af; font-weight: 500;">
+              💡 <strong>Note:</strong> User data has been anonymized and deactivated rather than permanently deleted to preserve transaction history.
+            </p>
+          </div>
+          
+          <p style="color: #6b7280; font-size: 14px; margin-bottom: 0;">
+            PaySSD Admin Notification System<br>
+            This is an automated notification
+          </p>
+        </div>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to: adminEmail,
+      subject: `🗑️ User Deleted - ${deletedUser.profile.firstName} ${deletedUser.profile.lastName}`,
+      html: emailHtml
+    });
+
+    return { success: true };
+
+  } catch (error) {
+    console.error('Admin user deleted email error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+const sendAdminPaymentNotificationEmail = async (transaction, merchant) => {
+  try {
+    // Check if admin email alerts are enabled
+    const settings = getSettings();
+    if (!settings.adminEmailAlerts) {
+      return { success: true, skipped: true, reason: 'Admin email alerts disabled' };
+    }
+    
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@payssd.com';
+    
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #10b981; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+          <h1 style="margin: 0; font-size: 24px;">💰 Payment Received</h1>
+        </div>
+        
+        <div style="background-color: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb;">
+          <h2 style="color: #1f2937; margin-top: 0;">New payment processed</h2>
+          
+          <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+            A new payment has been successfully processed on the PaySSD platform.
+          </p>
+          
+          <div style="background-color: white; padding: 20px; border-radius: 6px; border: 1px solid #d1d5db; margin: 20px 0;">
+            <h3 style="color: #1f2937; margin-top: 0;">Payment Details</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Transaction ID:</td>
+                <td style="padding: 8px 0; color: #1f2937; font-weight: 600;">${transaction.transactionId}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Amount:</td>
+                <td style="padding: 8px 0; color: #10b981; font-weight: 700; font-size: 18px;">${transaction.currency} ${transaction.amount.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Platform Fee:</td>
+                <td style="padding: 8px 0; color: #1f2937;">${transaction.currency} ${transaction.fees?.platform || 0}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Payment Method:</td>
+                <td style="padding: 8px 0; color: #1f2937;">${transaction.paymentMethod === 'mtn_momo' ? 'MTN Mobile Money' : 'Digicash'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Customer:</td>
+                <td style="padding: 8px 0; color: #1f2937;">${transaction.customer.name}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Customer Phone:</td>
+                <td style="padding: 8px 0; color: #1f2937;">${transaction.customer.phoneNumber}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <div style="background-color: white; padding: 20px; border-radius: 6px; border: 1px solid #d1d5db; margin: 20px 0;">
+            <h3 style="color: #1f2937; margin-top: 0;">Merchant Details</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Name:</td>
+                <td style="padding: 8px 0; color: #1f2937; font-weight: 600;">${merchant.profile.firstName} ${merchant.profile.lastName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Email:</td>
+                <td style="padding: 8px 0; color: #1f2937;">${merchant.email}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Business:</td>
+                <td style="padding: 8px 0; color: #1f2937;">${merchant.profile.businessName || 'Individual Account'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Location:</td>
+                <td style="padding: 8px 0; color: #1f2937;">${merchant.profile.address.city}, ${merchant.profile.address.country}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <div style="background-color: #ecfdf5; padding: 15px; border-radius: 6px; border-left: 4px solid #10b981; margin: 20px 0;">
+            <p style="margin: 0; color: #065f46; font-weight: 500;">
+              📊 <strong>Platform Revenue:</strong> ${transaction.currency} ${transaction.fees?.platform || 0} added to platform earnings.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.CLIENT_URL}/admin/transactions" 
+               style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
+              View Transaction Details
+            </a>
+          </div>
+          
+          <p style="color: #6b7280; font-size: 14px; margin-bottom: 0;">
+            PaySSD Admin Notification System<br>
+            This is an automated notification
+          </p>
+        </div>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to: adminEmail,
+      subject: `💰 Payment Alert - ${transaction.currency} ${transaction.amount.toLocaleString()} | PaySSD`,
+      html: emailHtml
+    });
+
+    return { success: true };
+
+  } catch (error) {
+    console.error('Admin payment notification email error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 // Main notification function
 const sendNotification = async (transaction) => {
   try {
@@ -423,6 +710,12 @@ const sendNotification = async (transaction) => {
       }
     }
 
+    // Send admin notification for successful payments (check settings)
+    if (transaction.status === 'successful') {
+      // For now, we'll send admin notifications. In a real app, check admin settings
+      notifications.push(sendAdminPaymentNotificationEmail(transaction, merchant));
+    }
+
     // Wait for all notifications to complete
     const results = await Promise.allSettled(notifications);
     
@@ -445,5 +738,8 @@ module.exports = {
   sendPaymentSuccessSMS,
   sendPaymentFailedSMS,
   sendKYCApprovedEmail,
-  sendKYCRejectedEmail
+  sendKYCRejectedEmail,
+  sendAdminNewUserEmail,
+  sendAdminUserDeletedEmail,
+  sendAdminPaymentNotificationEmail
 };

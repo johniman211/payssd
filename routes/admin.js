@@ -5,7 +5,8 @@ const Transaction = require('../models/Transaction');
 const PaymentLink = require('../models/PaymentLink');
 const Payout = require('../models/Payout');
 const { auth, adminAuth } = require('../middleware/auth');
-const { sendKYCApprovedEmail, sendKYCRejectedEmail } = require('../services/notificationService');
+const { sendKYCApprovedEmail, sendKYCRejectedEmail, sendAdminNewUserEmail, sendAdminUserDeletedEmail } = require('../services/notificationService');
+const { getSettings, updateSettings } = require('../services/settingsStore');
 const router = express.Router();
 
 // Get dashboard statistics
@@ -652,6 +653,74 @@ router.put('/users/:userId/activate', [
 
   } catch (error) {
     console.error('Activate user error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Deactivate user (admin only)
+router.put('/users/:userId/deactivate', [
+  auth,
+  adminAuth,
+  body('reason')
+    .optional()
+    .trim()
+    .isLength({ min: 5, max: 500 })
+    .withMessage('Reason must be between 5 and 500 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { userId } = req.params;
+    const { reason } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (user.role === 'admin') {
+      return res.status(400).json({ success: false, message: 'Cannot modify admin user status' });
+    }
+
+    user.isActive = false;
+    user.updatedAt = new Date();
+
+    if (reason) {
+      user.adminNotes = user.adminNotes || [];
+      user.adminNotes.push({
+        note: `Status changed to inactive: ${reason}`,
+        addedBy: req.user.id,
+        addedAt: new Date()
+      });
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'User has been successfully deleted and anonymized'
+    });
+
+    // Send admin deletion notification (non-blocking)
+    try {
+      if (process.env.ADMIN_EMAIL) {
+        sendAdminUserDeletedEmail(user, req.user, reason).catch(err => 
+          console.error('Admin user deleted email failed:', err?.message || err)
+        );
+      }
+    } catch (adminEmailErr) {
+      console.error('Error scheduling admin user deleted email:', adminEmailErr);
+    }
+
+  } catch (error) {
+    console.error('Delete user error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -1485,8 +1554,16 @@ router.put('/kyc-submissions/:id/approve', [auth, adminAuth], async (req, res) =
 
     await user.save();
 
-    // Send approval email (implement this in your notification service)
-    // await sendKYCApprovedEmail(user.email, user.profile.firstName);
+    // Send KYC approval email (non-blocking)
+    try {
+      if (user.email) {
+        sendKYCApprovedEmail(user).catch(err => {
+          console.error('KYC approved email failed:', err?.message || err);
+        });
+      }
+    } catch (e) {
+      console.error('KYC approved email error wrapper:', e?.message || e);
+    }
 
     res.json({
       success: true,
@@ -1530,8 +1607,16 @@ router.put('/kyc-submissions/:id/reject', [auth, adminAuth], async (req, res) =>
 
     await user.save();
 
-    // Send rejection email (implement this in your notification service)
-    // await sendKYCRejectedEmail(user.email, user.profile.firstName, reason);
+    // Send KYC rejection email (non-blocking)
+    try {
+      if (user.email) {
+        sendKYCRejectedEmail(user, reason).catch(err => {
+          console.error('KYC rejected email failed:', err?.message || err);
+        });
+      }
+    } catch (e) {
+      console.error('KYC rejected email error wrapper:', e?.message || e);
+    }
 
     res.json({
       success: true,
@@ -1551,43 +1636,7 @@ router.put('/kyc-submissions/:id/reject', [auth, adminAuth], async (req, res) =>
 // Get system settings
 router.get('/settings', [auth, adminAuth], async (req, res) => {
   try {
-    // In a real application, you would store these in a database
-    // For now, return default settings
-    const settings = {
-      platform: {
-        name: 'PaySSD',
-        description: 'South Sudan Payment Gateway',
-        supportEmail: process.env.SUPPORT_EMAIL || 'support@payssd.com',
-        maintenanceMode: false
-      },
-      fees: {
-        transactionFeePercentage: 2.5,
-        minimumFee: 1.0,
-        maximumFee: 100.0,
-        payoutFee: 5.0
-      },
-      limits: {
-        dailyTransactionLimit: 10000,
-        monthlyTransactionLimit: 100000,
-        minimumTransactionAmount: 1,
-        maximumTransactionAmount: 50000
-      },
-      security: {
-        sessionTimeout: 30,
-        maxLoginAttempts: 5,
-        passwordMinLength: 8,
-        requireTwoFactor: false,
-        ipWhitelisting: false,
-        adminEmailAlerts: true
-      },
-      notifications: {
-        emailNotifications: true,
-        smsNotifications: true,
-        webhookRetries: 3,
-        webhookTimeout: 30
-      }
-    };
-
+    const settings = getSettings();
     res.json({
       success: true,
       settings
@@ -1603,15 +1652,18 @@ router.put('/settings', [auth, adminAuth], async (req, res) => {
   try {
     const { settings } = req.body;
 
-    // In a real application, you would validate and save these to a database
-    // For now, just return success
+    if (!settings || typeof settings !== 'object') {
+      return res.status(400).json({ message: 'Invalid settings data' });
+    }
+
+    const updatedSettings = updateSettings(settings);
     console.log('Settings updated by admin:', req.user.email);
-    console.log('New settings:', settings);
+    console.log('New settings:', updatedSettings);
 
     res.json({
       success: true,
       message: 'Settings updated successfully',
-      settings
+      settings: updatedSettings
     });
   } catch (error) {
     console.error('Update settings error:', error);
