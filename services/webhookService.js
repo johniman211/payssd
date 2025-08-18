@@ -104,13 +104,13 @@ class WebhookService {
       timestamp: new Date().toISOString(),
       data: {
         id: payout._id,
-        reference: payout.reference,
+        reference: payout.payoutId,
         amount: payout.amount,
         currency: payout.currency,
         status: payout.status,
-        paymentMethod: payout.paymentMethod,
-        merchantId: payout.merchantId,
-        recipientDetails: payout.recipientDetails,
+        payoutMethod: payout.payoutMethod,
+        merchantId: payout.merchant, // ObjectId or populated
+        destination: payout.destination,
         createdAt: payout.createdAt,
         updatedAt: payout.updatedAt
       }

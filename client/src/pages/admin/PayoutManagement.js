@@ -103,7 +103,7 @@ const PayoutManagement = () => {
       filtered = filtered.filter(payout =>
         payout.merchantName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         payout.merchantEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        payout.id.toLowerCase().includes(searchTerm.toLowerCase())
+        (payout.payoutId || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -157,7 +157,7 @@ const PayoutManagement = () => {
       
       // Update local state
       setPayouts(prev => prev.map(payout => 
-        payout.id === payoutId 
+        payout.payoutId === payoutId 
           ? { 
               ...payout, 
               status: 'approved', 
@@ -202,7 +202,7 @@ const PayoutManagement = () => {
       
       // Update local state
       setPayouts(prev => prev.map(payout => 
-        payout.id === payoutId 
+        payout.payoutId === payoutId 
           ? { 
               ...payout, 
               status: 'rejected', 
@@ -245,7 +245,7 @@ const PayoutManagement = () => {
       
       // Update local state
       setPayouts(prev => prev.map(payout => 
-        payout.id === payoutId 
+        payout.payoutId === payoutId 
           ? { 
               ...payout, 
               status: 'completed', 
@@ -624,13 +624,13 @@ const PayoutManagement = () => {
               </thead>
               <tbody>
                 {filteredPayouts.map((payout) => (
-                  <tr key={payout.id}>
+                  <tr key={payout.payoutId}>
                     <td>
                       <div>
                         <p className="text-sm font-medium text-gray-900">
-                          #{payout.id.slice(-8).toUpperCase()}
+                          #{(payout.payoutId || '').slice(-8).toUpperCase()}
                         </p>
-                        <p className="text-xs text-gray-500">{payout.bankDetails?.accountNumber}</p>
+                        <p className="text-xs text-gray-500">{payout.destination?.accountNumber}</p>
                       </div>
                     </td>
                     <td>
@@ -701,7 +701,7 @@ const PayoutManagement = () => {
               {/* Modal Header */}
               <div className="flex items-center justify-between pb-4 border-b">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Payout Request - #{selectedPayout.id.slice(-8).toUpperCase()}
+                  Payout Request - #{(selectedPayout.payoutId || '').slice(-8).toUpperCase()}
                 </h3>
                 <button
                   onClick={() => setShowModal(false)}
@@ -719,7 +719,7 @@ const PayoutManagement = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm font-medium text-gray-500">Request ID</p>
-                      <p className="text-sm text-gray-900 mt-1">#{selectedPayout.id}</p>
+                      <p className="text-sm text-gray-900 mt-1">#{selectedPayout.payoutId}</p>
                     </div>
                     
                     <div>
@@ -791,22 +791,22 @@ const PayoutManagement = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm font-medium text-gray-500">Bank Name</p>
-                        <p className="text-sm text-gray-900 mt-1">{selectedPayout.bankDetails?.bankName}</p>
+                        <p className="text-sm text-gray-900 mt-1">{selectedPayout.destination?.bankName}</p>
                       </div>
                       
                       <div>
                         <p className="text-sm font-medium text-gray-500">Account Number</p>
-                        <p className="text-sm text-gray-900 mt-1">{selectedPayout.bankDetails?.accountNumber}</p>
+                        <p className="text-sm text-gray-900 mt-1">{selectedPayout.destination?.accountNumber}</p>
                       </div>
                       
                       <div>
                         <p className="text-sm font-medium text-gray-500">Account Name</p>
-                        <p className="text-sm text-gray-900 mt-1">{selectedPayout.bankDetails?.accountName}</p>
+                        <p className="text-sm text-gray-900 mt-1">{selectedPayout.destination?.accountName}</p>
                       </div>
                       
                       <div>
                         <p className="text-sm font-medium text-gray-500">Branch</p>
-                        <p className="text-sm text-gray-900 mt-1">{selectedPayout.bankDetails?.branch || 'N/A'}</p>
+                        <p className="text-sm text-gray-900 mt-1">{selectedPayout.destination?.branch || 'N/A'}</p>
                       </div>
                     </div>
                   </div>
@@ -906,7 +906,7 @@ const PayoutManagement = () => {
                 
                 {selectedPayout.status === 'approved' && (
                   <button
-                    onClick={() => handleCompletePayout(selectedPayout.id)}
+                    onClick={() => handleCompletePayout(selectedPayout.payoutId)}
                     disabled={processing}
                     className="btn btn-primary"
                   >
@@ -978,7 +978,7 @@ const PayoutManagement = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={() => handleApprovePayout(selectedPayout.id, approvalNotes)}
+                  onClick={() => handleApprovePayout(selectedPayout.payoutId, approvalNotes)}
                   disabled={processing}
                   className="btn btn-success"
                 >
@@ -1051,7 +1051,7 @@ const PayoutManagement = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={() => handleRejectPayout(selectedPayout.id, rejectionReason)}
+                  onClick={() => handleRejectPayout(selectedPayout.payoutId, rejectionReason)}
                   disabled={processing || !rejectionReason.trim()}
                   className="btn btn-danger"
                 >

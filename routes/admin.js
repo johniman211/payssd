@@ -1,5 +1,5 @@
 const express = require('express');
-const { query, body, validationResult } = require('express-validator');
+const { query, body, param, validationResult } = require('express-validator');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const PaymentLink = require('../models/PaymentLink');
@@ -730,6 +730,8 @@ router.put('/users/:userId/deactivate', [
 router.delete('/users/:userId', [
   auth,
   adminAuth,
+  // Validate userId path param
+  param('userId').isMongoId().withMessage('Invalid user id'),
   // Make confirmation optional to align with client implementation
   body('confirmation')
     .optional()
@@ -844,7 +846,24 @@ router.delete('/users/:userId', [
 
   } catch (error) {
     console.error('Delete user error:', error);
-    res.status(500).json({ message: 'Server error' });
+    if (error?.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: Object.values(error.errors || {}).map(e => ({ msg: e.message, path: e.path }))
+      });
+    }
+    if (error?.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Duplicate key error',
+        keyValue: error.keyValue
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: process.env.NODE_ENV === 'development' ? (error?.message || 'Server error') : 'Server error'
+    });
   }
 });
 
@@ -1066,7 +1085,8 @@ router.get('/payouts', [
       limit = 20,
       status,
       startDate,
-      endDate
+      endDate,
+      format
     } = req.query;
 
     // Build filter query
@@ -1091,85 +1111,50 @@ router.get('/payouts', [
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit))
-        .select('-providerResponse -metadata')
         .lean(),
       Payout.countDocuments(filter)
     ]);
 
-    // Calculate stats for payouts
-    const allStats = await Payout.aggregate([
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          totalAmount: { $sum: '$amount' },
-          pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
-          processing: { $sum: { $cond: [{ $eq: ['$status', 'processing'] }, 1, 0] } },
-          completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
-          failed: { $sum: { $cond: [{ $eq: ['$status', 'failed'] }, 1, 0] } },
-          cancelled: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } },
-          pendingAmount: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, '$amount', 0] } },
-          completedAmount: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, '$amount', 0] } }
+    if (format === 'csv') {
+      const csvData = payouts.map(p => ({
+        Reference: p.payoutId,
+        Amount: p.amount,
+        Status: p.status,
+        'Bank Name': p.destination?.bankName,
+        'Account Number': p.destination?.accountNumber,
+        'Merchant Email': p.merchant?.email,
+        'Merchant Name': `${p.merchant?.profile?.firstName} ${p.merchant?.profile?.lastName}`,
+        'Business Name': p.merchant?.profile?.businessName,
+        'Created At': p.createdAt,
+        'Processed At': p.processedAt
+      }));
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=payouts.csv');
+      
+      const headers = Object.keys(csvData[0] || {}).join(',');
+      const rows = csvData.map(row => Object.values(row).join(','));
+      const csv = [headers, ...rows].join('\n');
+      
+      res.send(csv);
+    } else {
+      const totalPages = Math.ceil(totalCount / parseInt(limit));
+      const hasNextPage = parseInt(page) < totalPages;
+      const hasPrevPage = parseInt(page) > 1;
+
+      res.json({
+        success: true,
+        payouts,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages,
+          totalCount,
+          hasNextPage,
+          hasPrevPage,
+          limit: parseInt(limit)
         }
-      }
-    ]);
-
-    const stats = allStats[0] || {
-      total: 0,
-      totalAmount: 0,
-      pending: 0,
-      processing: 0,
-      completed: 0,
-      failed: 0,
-      cancelled: 0,
-      pendingAmount: 0,
-      completedAmount: 0
-    };
-
-    // For compatibility with frontend, also include 'approved' and 'rejected' stats
-    stats.approved = stats.processing; // Admin has 'processing' but frontend uses 'approved'
-    stats.rejected = stats.failed + stats.cancelled; // Combine failed and cancelled for 'rejected'
-
-    // Transform payouts to match frontend expectations
-    const transformedPayouts = payouts.map(p => ({
-      id: p.payoutId,
-      payoutId: p.payoutId,
-      merchantName: p.merchant?.profile?.businessName || 
-                   `${p.merchant?.profile?.firstName || ''} ${p.merchant?.profile?.lastName || ''}`.trim() ||
-                   'Unknown Merchant',
-      merchantEmail: p.merchant?.email || '',
-      amount: p.amount,
-      currency: p.currency,
-      payoutMethod: p.payoutMethod,
-      destination: p.destination,
-      status: p.status,
-      fees: p.fees,
-      createdAt: p.createdAt,
-      processedAt: p.processedAt,
-      completedAt: p.completedAt,
-      failedAt: p.failedAt,
-      reason: p.reason || p.failureReason || ''
-    }));
-
-    // Calculate pagination info
-    const totalPages = Math.ceil(totalCount / parseInt(limit));
-    const hasNextPage = parseInt(page) < totalPages;
-    const hasPrevPage = parseInt(page) > 1;
-
-    res.json({
-      success: true,
-      payouts: transformedPayouts,
-      stats,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages,
-        totalCount,
-        hasNextPage,
-        hasPrevPage,
-        limit: parseInt(limit)
-      }
-    });
-
+      });
+    }
   } catch (error) {
     console.error('Get admin payouts error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -1683,11 +1668,11 @@ router.get('/payouts/export', [auth, adminAuth], async (req, res) => {
 
     if (format === 'csv') {
       const csvData = payouts.map(p => ({
-        Reference: p.reference,
+        Reference: p.payoutId,
         Amount: p.amount,
         Status: p.status,
-        'Bank Name': p.bankDetails?.bankName,
-        'Account Number': p.bankDetails?.accountNumber,
+        'Bank Name': p.destination?.bankName,
+        'Account Number': p.destination?.accountNumber,
         'Merchant Email': p.merchant?.email,
         'Merchant Name': `${p.merchant?.profile?.firstName} ${p.merchant?.profile?.lastName}`,
         'Business Name': p.merchant?.profile?.businessName,

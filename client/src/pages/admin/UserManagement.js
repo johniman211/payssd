@@ -72,7 +72,9 @@ const UserManagement = () => {
         }
       };
       const response = await axios.get('/api/admin/users', config);
-      setUsers(response.data.users);
+      // Normalize _id to id so downstream actions (activate/deactivate/delete) work reliably
+      const usersWithId = (response.data.users || []).map(u => ({ ...u, id: u._id }));
+      setUsers(usersWithId);
       setStats(response.data.stats);
     } catch (err) {
       console.error('Error fetching users:', err);
