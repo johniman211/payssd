@@ -1104,16 +1104,51 @@ router.get('/payouts', [
     // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    // Get payouts with merchant details
-    const [payouts, totalCount] = await Promise.all([
+    // Get payouts with merchant details and stats
+    const [payouts, totalCount, stats] = await Promise.all([
       Payout.find(filter)
         .populate('merchant', 'email profile.firstName profile.lastName profile.businessName')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit))
         .lean(),
-      Payout.countDocuments(filter)
+      Payout.countDocuments(filter),
+      Payout.aggregate([
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            pending: {
+              $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] }
+            },
+            processing: {
+              $sum: { $cond: [{ $eq: ['$status', 'processing'] }, 1, 0] }
+            },
+            completed: {
+              $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] }
+            },
+            failed: {
+              $sum: { $cond: [{ $eq: ['$status', 'failed'] }, 1, 0] }
+            },
+            cancelled: {
+              $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] }
+            },
+            totalAmount: { $sum: '$amount' },
+            pendingAmount: {
+              $sum: { $cond: [{ $eq: ['$status', 'pending'] }, '$amount', 0] }
+            },
+            completedAmount: {
+              $sum: { $cond: [{ $eq: ['$status', 'completed'] }, '$amount', 0] }
+            }
+          }
+        }
+      ])
     ]);
+
+    // Calculate 'approved' as processing status for UI compatibility
+    const statsData = stats[0] || {};
+    statsData.approved = statsData.processing || 0;
+    statsData.rejected = (statsData.failed || 0) + (statsData.cancelled || 0);
 
     if (format === 'csv') {
       const csvData = payouts.map(p => ({
@@ -1145,6 +1180,19 @@ router.get('/payouts', [
       res.json({
         success: true,
         payouts,
+        stats: {
+          total: statsData.total || 0,
+          pending: statsData.pending || 0,
+          approved: statsData.approved || 0,
+          completed: statsData.completed || 0,
+          rejected: statsData.rejected || 0,
+          totalAmount: statsData.totalAmount || 0,
+          pendingAmount: statsData.pendingAmount || 0,
+          completedAmount: statsData.completedAmount || 0,
+          processing: statsData.processing || 0,
+          failed: statsData.failed || 0,
+          cancelled: statsData.cancelled || 0
+        },
         pagination: {
           currentPage: parseInt(page),
           totalPages,
