@@ -288,7 +288,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 // Toggle featured status
-router.patch('/:id/featured', async (req, res) => {
+router.patch('/:id/featured', requireAdmin, async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id);
     
@@ -311,7 +311,7 @@ router.patch('/:id/featured', async (req, res) => {
 });
 
 // Toggle published status
-router.patch('/:id/publish', async (req, res) => {
+router.patch('/:id/publish', requireAdmin, async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id);
     
