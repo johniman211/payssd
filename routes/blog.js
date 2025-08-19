@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Blog = require('../models/Blog');
 const { auth } = require('../middleware/auth');
+const mongoose = require('mongoose');
 
 // Get all published blogs (public)
 router.get('/public', async (req, res) => {
@@ -269,6 +270,9 @@ router.put('/:id', async (req, res) => {
 // Delete blog post
 router.delete('/:id', async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid blog ID' });
+    }
     const blog = await Blog.findById(req.params.id);
     
     if (!blog) {
@@ -283,13 +287,16 @@ router.delete('/:id', async (req, res) => {
     });
   } catch (error) {
     console.error('Error deleting blog:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 
 // Toggle featured status
 router.patch('/:id/featured', requireAdmin, async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid blog ID' });
+    }
     const blog = await Blog.findById(req.params.id);
     
     if (!blog) {
@@ -306,13 +313,16 @@ router.patch('/:id/featured', requireAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error('Error toggling featured status:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 
 // Toggle published status
 router.patch('/:id/publish', requireAdmin, async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid blog ID' });
+    }
     const blog = await Blog.findById(req.params.id);
     
     if (!blog) {
@@ -332,7 +342,7 @@ router.patch('/:id/publish', requireAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error('Error toggling published status:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 
