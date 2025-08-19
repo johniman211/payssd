@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { TokenStorage } from '../../utils/security';
 import {
   PlusIcon,
   PencilIcon,
@@ -50,6 +51,8 @@ const BlogManagement = () => {
   const fetchBlogs = async () => {
     try {
       setLoading(true);
+      const currentRole = TokenStorage.getCurrentRole();
+      const token = TokenStorage.getToken(currentRole);
       const params = {
         page: pagination.page,
         limit: pagination.limit,
@@ -58,7 +61,10 @@ const BlogManagement = () => {
         ...(filterStatus !== 'all' && { published: filterStatus === 'published' })
       };
 
-      const response = await axios.get('/api/blog', { params });
+      const response = await axios.get('/api/blog', { 
+        params,
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setBlogs(response.data.blogs);
       setPagination(response.data.pagination);
     } catch (error) {
@@ -70,7 +76,11 @@ const BlogManagement = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await axios.get('/api/blog/stats/overview');
+      const currentRole = TokenStorage.getCurrentRole();
+      const token = TokenStorage.getToken(currentRole);
+      const response = await axios.get('/api/blog/stats/overview', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setStats(response.data.stats);
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -80,7 +90,11 @@ const BlogManagement = () => {
   const handleCreateBlog = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('/api/blog', formData);
+      const currentRole = TokenStorage.getCurrentRole();
+      const token = TokenStorage.getToken(currentRole);
+      await axios.post('/api/blog', formData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setShowCreateModal(false);
       resetForm();
       fetchBlogs();
@@ -94,7 +108,11 @@ const BlogManagement = () => {
   const handleUpdateBlog = async (e) => {
     e.preventDefault();
     try {
-      await axios.put(`/api/blog/${selectedBlog._id}`, formData);
+      const currentRole = TokenStorage.getCurrentRole();
+      const token = TokenStorage.getToken(currentRole);
+      await axios.put(`/api/blog/${selectedBlog._id}`, formData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setShowEditModal(false);
       setSelectedBlog(null);
       resetForm();
@@ -109,7 +127,11 @@ const BlogManagement = () => {
   const handleDeleteBlog = async (blogId) => {
     if (window.confirm('Are you sure you want to delete this blog post?')) {
       try {
-        await axios.delete(`/api/blog/${blogId}`);
+        const currentRole = TokenStorage.getCurrentRole();
+        const token = TokenStorage.getToken(currentRole);
+        await axios.delete(`/api/blog/${blogId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         fetchBlogs();
         fetchStats();
       } catch (error) {
@@ -121,7 +143,11 @@ const BlogManagement = () => {
 
   const toggleFeatured = async (blogId) => {
     try {
-      await axios.patch(`/api/blog/${blogId}/featured`);
+      const currentRole = TokenStorage.getCurrentRole();
+      const token = TokenStorage.getToken(currentRole);
+      await axios.patch(`/api/blog/${blogId}/featured`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       fetchBlogs();
       fetchStats();
     } catch (error) {
@@ -131,7 +157,11 @@ const BlogManagement = () => {
 
   const togglePublished = async (blogId) => {
     try {
-      await axios.patch(`/api/blog/${blogId}/publish`);
+      const currentRole = TokenStorage.getCurrentRole();
+      const token = TokenStorage.getToken(currentRole);
+      await axios.patch(`/api/blog/${blogId}/publish`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       fetchBlogs();
       fetchStats();
     } catch (error) {

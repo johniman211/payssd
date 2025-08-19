@@ -355,7 +355,7 @@ router.post('/:id/like', async (req, res) => {
 });
 
 // Get blog statistics
-router.get('/stats/overview', async (req, res) => {
+router.get('/stats/overview', requireAdmin, async (req, res) => {
   try {
     const totalBlogs = await Blog.countDocuments();
     const publishedBlogs = await Blog.countDocuments({ published: true });
