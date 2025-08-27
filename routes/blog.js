@@ -304,7 +304,8 @@ router.patch('/:id/featured', requireAdmin, async (req, res) => {
     }
     
     blog.featured = !blog.featured;
-    await blog.save();
+    // Disable validation to avoid failing due to legacy invalid fields when only toggling featured
+    await blog.save({ validateBeforeSave: false });
     
     res.json({
       success: true,
@@ -333,7 +334,8 @@ router.patch('/:id/publish', requireAdmin, async (req, res) => {
     if (blog.published && !blog.publishedAt) {
       blog.publishedAt = new Date();
     }
-    await blog.save();
+    // Disable validation to avoid failing due to legacy invalid fields when only toggling published
+    await blog.save({ validateBeforeSave: false });
     
     res.json({
       success: true,
