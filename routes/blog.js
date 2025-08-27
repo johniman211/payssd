@@ -321,30 +321,49 @@ router.patch('/:id/featured', requireAdmin, async (req, res) => {
 // Toggle published status
 router.patch('/:id/publish', requireAdmin, async (req, res) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ success: false, message: 'Invalid blog ID' });
     }
-    const blog = await Blog.findById(req.params.id);
-    
-    if (!blog) {
+
+    // Fetch current published state without loading full document to avoid pre-save hooks
+    const current = await Blog.findById(id).select('published publishedAt').lean();
+    if (!current) {
       return res.status(404).json({ success: false, message: 'Blog post not found' });
     }
-    
-    blog.published = !blog.published;
-    if (blog.published && !blog.publishedAt) {
-      blog.publishedAt = new Date();
+
+    const nextPublished = !current.published;
+    const now = new Date();
+
+    const update = nextPublished
+      ? { published: true, publishedAt: current.publishedAt || now, updatedAt: now }
+      : { published: false, updatedAt: now };
+
+    const updated = await Blog.findByIdAndUpdate(
+      id,
+      { $set: update },
+      { new: true, runValidators: false }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Blog post not found' });
     }
-    // Disable validation to avoid failing due to legacy invalid fields when only toggling published
-    await blog.save({ validateBeforeSave: false });
-    
-    res.json({
+
+    return res.json({
       success: true,
-      message: `Blog post ${blog.published ? 'published' : 'unpublished'} successfully`,
-      blog
+      message: `Blog post ${updated.published ? 'published' : 'unpublished'} successfully`,
+      blog: updated
     });
   } catch (error) {
-    console.error('Error toggling published status:', error);
-    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+    console.error('Error toggling published status:', {
+      id: req.params?.id,
+      name: error?.name,
+      code: error?.code,
+      message: error?.message,
+      stack: error?.stack
+    });
+    return res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 
