@@ -425,14 +425,14 @@ const CompliancePage = () => {
                 <h3 className="text-lg font-semibold text-white mb-3">Compliance Team</h3>
                 <div className="space-y-2 text-gray-300">
                   <p><strong>Email:</strong> compliance@payssd.com</p>
-                  <p><strong>Phone:</strong> +1 (555) 123-4567</p>
+                  <p><strong>Phone:</strong> +211929385157</p>
                 </div>
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-white mb-3">Security Team</h3>
                 <div className="space-y-2 text-gray-300">
                   <p><strong>Email:</strong> security@payssd.com</p>
-                  <p><strong>Emergency:</strong> +1 (555) 987-6543</p>
+                  <p><strong>Emergency:</strong> +211929385157</p>
                 </div>
               </div>
             </div>

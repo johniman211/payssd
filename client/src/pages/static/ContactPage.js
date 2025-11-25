@@ -49,17 +49,15 @@ const ContactPage = () => {
       icon: <MapPinIcon className="h-6 w-6" />,
       title: 'Office Address',
       details: [
-        '123 Payment Street',
-        'San Francisco, CA 94105',
-        'United States'
+        'Juba, South Sudan'
       ]
     },
     {
       icon: <PhoneIcon className="h-6 w-6" />,
       title: 'Phone',
       details: [
-        '+1 (555) 123-4567',
-        'Mon-Fri 9AM-6PM PST'
+        '+211929385157',
+        'Mon-Fri 9AM-6PM'
       ]
     },
     {
@@ -91,25 +89,11 @@ const ContactPage = () => {
 
   const offices = [
     {
-      city: 'San Francisco',
-      country: 'United States',
-      address: '123 Payment Street, San Francisco, CA 94105',
-      phone: '+1 (555) 123-4567',
-      email: 'sf@payssd.com'
-    },
-    {
-      city: 'London',
-      country: 'United Kingdom',
-      address: '456 Finance Lane, London EC2V 8AB',
-      phone: '+44 20 7123 4567',
-      email: 'london@payssd.com'
-    },
-    {
-      city: 'Singapore',
-      country: 'Singapore',
-      address: '789 Fintech Hub, Singapore 018989',
-      phone: '+65 6123 4567',
-      email: 'singapore@payssd.com'
+      city: 'Juba',
+      country: 'South Sudan',
+      address: 'Juba, South Sudan',
+      phone: '+211929385157',
+      email: 'support@payssd.com'
     }
   ];
 
@@ -277,18 +261,17 @@ const ContactPage = () => {
         </div>
       </div>
 
-      {/* Global Offices */}
+      {/* Office */}
       <div className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">
-              Our Global Offices
+              Our Office
             </h2>
             <p className="mt-4 text-xl text-gray-600">
-              We have offices around the world to serve you better
+              We operate from Juba, South Sudan
             </p>
           </div>
-          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {offices.map((office, index) => (
               <div key={index} className="bg-gray-50 rounded-lg p-6">

@@ -251,8 +251,8 @@ const PrivacyPolicyPage = () => {
                 </p>
                 <div className="space-y-2 text-gray-700">
                   <p><strong>Email:</strong> privacy@payssd.com</p>
-                  <p><strong>Address:</strong> 123 Payment Street, Tech City, TC 12345</p>
-                  <p><strong>Phone:</strong> +1 (555) 123-4567</p>
+                  <p><strong>Address:</strong> Juba, South Sudan</p>
+                  <p><strong>Phone:</strong> +211929385157</p>
                 </div>
               </div>
               <div>
