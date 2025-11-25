@@ -10,6 +10,7 @@ const nodemailer = require('nodemailer');
 const { sendAdminNewUserEmail } = require('../services/notificationService');
 
 const router = express.Router();
+const { getSettings } = require('../services/settingsStore');
 
 // Rate limiting for auth routes
 const authLimiter = rateLimit({
@@ -116,6 +117,13 @@ router.post('/register', [
     .withMessage('You must confirm that you are based in South Sudan')
 ], async (req, res) => {
   try {
+    const settings = await getSettings();
+    if (settings?.general?.maintenanceMode) {
+      return res.status(503).json({ success: false, message: 'System maintenance in progress. Registration is temporarily disabled.' });
+    }
+    if (settings?.general?.registrationEnabled === false) {
+      return res.status(403).json({ success: false, message: 'New user registration is currently disabled.' });
+    }
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -274,6 +282,10 @@ router.post('/login', authLimiter, [
   body('password').exists().withMessage('Password is required')
 ], async (req, res) => {
   try {
+    const settings = await getSettings();
+    if (settings?.general?.maintenanceMode) {
+      return res.status(503).json({ success: false, message: 'System maintenance in progress. Login is temporarily disabled.' });
+    }
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
