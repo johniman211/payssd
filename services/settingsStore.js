@@ -34,41 +34,78 @@ async function getSettings() {
   } catch (error) {
     console.error('Error fetching settings:', error);
     
-    // Return default settings if database fails
+    // Return default settings aligned with schema if database fails
     const defaultSettings = {
-      platform: {
-        name: 'PaySSD',
-        description: 'South Sudan Payment Gateway',
+      _id: 'system_settings',
+      general: {
+        platformName: 'PaySSD',
+        platformDescription: 'Secure payment gateway for South Sudan',
         supportEmail: process.env.SUPPORT_EMAIL || 'support@payssd.com',
         supportPhone: '+211 123 456 789',
         maintenanceMode: false,
+        registrationEnabled: true,
+        kycRequired: true,
+        autoApproveKyc: false
       },
-      fees: {
+      payments: {
+        mtnMomoEnabled: true,
+        digicashEnabled: true,
+        minPaymentAmount: 100,
+        maxPaymentAmount: 1000000,
         transactionFeePercentage: 2.5,
-        minimumFee: 1.0,
-        maximumFee: 100.0,
-        payoutFee: 5.0,
+        fixedTransactionFee: 0,
+        paymentTimeout: 300,
+        autoRefundEnabled: true,
+        refundTimeout: 24
       },
-      limits: {
-        dailyTransactionLimit: 10000,
-        monthlyTransactionLimit: 100000,
-        minimumTransactionAmount: 1,
-        maximumTransactionAmount: 50000,
+      payouts: {
+        minPayoutAmount: 1000,
+        maxPayoutAmount: 5000000,
+        payoutFeePercentage: 1.0,
+        fixedPayoutFee: 50,
+        autoApprovePayouts: false,
+        payoutProcessingDays: 3,
+        requireBankVerification: true
       },
       security: {
         sessionTimeout: 30,
         maxLoginAttempts: 5,
-        passwordMinLength: 8,
+        lockoutDuration: 15,
         requireTwoFactor: false,
-        ipWhitelisting: false,
+        passwordMinLength: 8,
+        passwordRequireSpecial: true,
+        passwordRequireNumbers: true,
+        passwordRequireUppercase: true,
+        apiRateLimit: 100,
+        ipWhitelistEnabled: false
       },
       notifications: {
-        emailNotifications: true,
-        smsNotifications: true,
-        webhookRetries: 3,
-        webhookTimeout: 30,
+        emailNotificationsEnabled: true,
+        smsNotificationsEnabled: true,
+        webhookNotificationsEnabled: true,
         adminEmailAlerts: true,
+        transactionAlerts: true,
+        securityAlerts: true,
+        systemMaintenanceAlerts: true,
+        dailyReports: true,
+        weeklyReports: true,
+        monthlyReports: true,
+        webhookRetries: 3,
+        webhookTimeout: 30
       },
+      integrations: {
+        mtnMomoApiKey: '',
+        mtnMomoSecretKey: '',
+        mtnMomoSandboxMode: true,
+        digicashApiKey: '',
+        digicashSecretKey: '',
+        digicashSandboxMode: true,
+        emailServiceProvider: 'sendgrid',
+        emailApiKey: '',
+        smsServiceProvider: 'twilio',
+        smsApiKey: '',
+        smsApiSecret: ''
+      }
     };
     
     return defaultSettings;

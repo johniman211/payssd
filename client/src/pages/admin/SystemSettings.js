@@ -139,8 +139,12 @@ const SystemSettings = () => {
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/admin/settings');
-      setSettings(prev => ({ ...prev, ...response.data }));
+      const { data } = await axios.get('/api/admin/settings');
+      if (data && data.settings) {
+        setSettings(data.settings);
+      } else {
+        toast.error('Invalid settings response');
+      }
     } catch (err) {
       console.error('Error fetching settings:', err);
       toast.error('Failed to load settings');
@@ -152,7 +156,10 @@ const SystemSettings = () => {
   const saveSettings = async () => {
     try {
       setSaving(true);
-      await axios.put('/api/admin/settings', settings);
+      const { data } = await axios.put('/api/admin/settings', { settings });
+      if (data && data.settings) {
+        setSettings(data.settings);
+      }
       toast.success('Settings saved successfully');
     } catch (err) {
       console.error('Error saving settings:', err);
