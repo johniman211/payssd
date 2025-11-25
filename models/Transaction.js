@@ -44,7 +44,7 @@ const transactionSchema = new mongoose.Schema({
   paymentMethod: {
     type: String,
     required: true,
-    enum: ['mtn_momo', 'digicash']
+    enum: ['mtn_momo', 'digicash', 'flutterwave']
   },
   
   // Customer Information

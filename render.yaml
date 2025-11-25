@@ -52,6 +52,8 @@ services:
         value: https://api.flutterwave.com
       - key: FLW_PUBLIC_KEY
         value: YOUR_FLUTTERWAVE_PUBLIC_KEY
+      - key: REACT_APP_FLUTTERWAVE_PUBLIC_KEY
+        value: YOUR_FLUTTERWAVE_PUBLIC_KEY
       - key: FLW_SECRET_KEY
         value: YOUR_FLUTTERWAVE_SECRET_KEY
       - key: FLW_ENCRYPTION_KEY
