@@ -242,18 +242,6 @@ const PublicLayout = ({ children, showNavbar = true, showFooter = true }) => {
   );
 };
 
-// Routes wrapper with animations
-const AnimatedRoutes = () => {
-  const location = useLocation();
-  
-  return (
-    <AnimatePresence mode="wait" initial={false}>
-      <Routes location={location} key={location.pathname}>
-        {/* Routes will be defined here */}
-      </Routes>
-    </AnimatePresence>
-  );
-};
 
 function App() {
   return (

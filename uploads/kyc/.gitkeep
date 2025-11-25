@@ -1,0 +1,2 @@
+# This file ensures the kyc uploads directory is tracked in git
+# KYC documents should be excluded but the directory structure should be preserved

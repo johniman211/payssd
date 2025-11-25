@@ -1,0 +1,5 @@
+export const supabaseConfig = {
+  url: 'https://dbzmltijxdyrjdbsqlwn.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiem1sdGlqeGR5cmpkYnNxbHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MDY2MjMsImV4cCI6MjA3OTM4MjYyM30.Nbxk9LlcxrlZNPmjEUq37x426BVaAaGtNUrWlLC4jmI',
+  serviceRoleKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiem1sdGlqeGR5cmpkYnNxbHduIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzgwNjYyMywiZXhwIjoyMDc5MzgyNjIzfQ.tT_o5vDQyeC3CtR3h9sTAMV7MvXVBKZq6doHm-Rt3a4'
+};

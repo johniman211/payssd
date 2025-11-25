@@ -114,43 +114,63 @@ const LandingPage = () => {
   const pricingPlans = [
     {
       name: 'Starter',
-      price: '2.5%',
+      monthlyFee: 'SSP 0',
+      transactionFee: '5%',
+      volume: 'Monthly volume limit: SSP 300,000',
       description: 'Perfect for small businesses and startups',
       features: [
-        'Up to 100 transactions/month',
-        'Basic analytics',
-        'Email support',
-        'Payment links',
-        'Mobile money integration'
+        'Basic dashboard',
+        'Standard payouts',
+        'Email/SMS notifications',
+        'Limited support'
       ],
+      cta: 'Get Started',
       popular: false
     },
     {
-      name: 'Business',
-      price: '2.0%',
+      name: 'Growth',
+      monthlyFee: 'SSP 10,000/month',
+      transactionFee: '3.5%',
+      volume: 'Monthly volume: up to SSP 5,000,000',
       description: 'Ideal for growing businesses',
       features: [
-        'Up to 1,000 transactions/month',
+        'Faster payouts',
+        'Branded receipts',
+        'Team accounts',
         'Advanced analytics',
-        'Priority support',
-        'Custom payment pages',
-        'API access',
-        'Webhook notifications'
+        'Priority support'
       ],
+      cta: 'Upgrade',
       popular: true
     },
     {
+      name: 'Business Pro',
+      monthlyFee: 'SSP 45,000/month',
+      transactionFee: '2.2%',
+      volume: 'Unlimited volume',
+      description: 'For established businesses',
+      features: [
+        'Custom payment flows',
+        'SLA',
+        'Advanced reporting',
+        'Dedicated account manager'
+      ],
+      cta: 'Upgrade',
+      popular: false
+    },
+    {
       name: 'Enterprise',
-      price: 'Custom',
+      monthlyFee: 'Custom pricing',
+      transactionFee: '1%–2%',
+      volume: 'Unlimited volume',
       description: 'For large businesses and organizations',
       features: [
-        'Unlimited transactions',
-        'Custom integrations',
-        'Dedicated account manager',
-        'White-label solutions',
-        'Advanced security features',
-        '24/7 phone support'
+        'White-labeling',
+        'API access',
+        'Bulk payout automation',
+        'Dedicated support'
       ],
+      cta: 'Contact Sales',
       popular: false
     }
   ];
@@ -523,12 +543,24 @@ const LandingPage = () => {
             </motion.div>
           </motion.div>
 
+          {/* Billing toggle (UI only) */}
+          <div className="flex items-center justify-center mb-10">
+            <div className="inline-flex items-center rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1">
+              <button className="px-4 py-2 rounded-xl text-sm font-semibold bg-primary-600 text-white">
+                Monthly
+              </button>
+              <button className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 dark:text-gray-300" disabled>
+                Yearly
+              </button>
+            </div>
+          </div>
+
           <motion.div 
             variants={containerVariants}
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
-            className="grid grid-cols-1 md:grid-cols-3 gap-8"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
           >
             {pricingPlans.map((plan, index) => (
               <motion.div
@@ -573,28 +605,20 @@ const LandingPage = () => {
                     {plan.name}
                   </motion.h3>
                   
-                  <p className={`mb-8 ${
-                    plan.popular ? 'text-primary-100' : 'text-gray-600 dark:text-gray-300'
-                  }`}>
+                  <p className={`mb-6 ${plan.popular ? 'text-primary-100' : 'text-gray-600 dark:text-gray-300'}`}>
                     {plan.description}
                   </p>
-                  
-                  <div className="mb-8">
-                    <motion.span 
-                      whileHover={{ scale: 1.1 }}
-                      className={`text-5xl font-bold ${
-                        plan.popular ? 'text-white' : 'bg-gradient-to-r from-primary-600 to-accent-600 bg-clip-text text-transparent'
-                      }`}
-                    >
-                      {plan.price}
-                    </motion.span>
-                    {plan.price !== 'Custom' && (
-                      <span className={`text-sm ${
-                        plan.popular ? 'text-primary-100' : 'text-gray-500 dark:text-gray-400'
-                      }`}>
-                        {' '}per transaction
-                      </span>
-                    )}
+
+                  <div className="mb-6 space-y-2">
+                    <div className={`text-3xl font-bold ${plan.popular ? 'text-white' : 'text-gray-900 dark:text-white'}`}>
+                      {plan.monthlyFee}
+                    </div>
+                    <div className={`${plan.popular ? 'text-primary-100' : 'text-gray-600 dark:text-gray-300'}`}>
+                      Transaction fee: {plan.transactionFee}
+                    </div>
+                    <div className={`${plan.popular ? 'text-primary-100' : 'text-gray-600 dark:text-gray-300'}`}>
+                      {plan.volume}
+                    </div>
                   </div>
                   
                   <ul className="space-y-4 mb-8 text-left">
@@ -633,7 +657,7 @@ const LandingPage = () => {
                       `}
                     >
                       <span className="relative z-10">
-                        {plan.price === 'Custom' ? 'Contact Sales' : 'Get Started'}
+                        {plan.cta}
                       </span>
                       {!plan.popular && (
                         <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />

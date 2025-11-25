@@ -52,7 +52,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  line-height: 1.6;
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  font-size: clamp(0.95rem, 0.45vw + 0.9rem, 1rem);
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
@@ -89,7 +91,7 @@ code {
 
 /* Modern Button Styles */
 .btn {
-  @apply inline-flex items-center justify-center px-6 py-3 text-sm font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden;
+  @apply inline-flex items-center justify-center px-5 sm:px-6 py-3 text-sm font-semibold rounded-2xl transition-transform duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden shadow-soft;
 }
 
 .btn::before {
@@ -108,19 +110,19 @@ code {
 }
 
 .btn-primary {
-  @apply bg-gradient-to-r from-primary-600 to-primary-700 text-white shadow-soft hover:shadow-elevated focus:ring-primary-500 transform hover:scale-105 active:scale-95;
+  @apply bg-gradient-to-r from-primary-600 to-primary-700 text-white shadow-elevated hover:shadow-premium hover:brightness-105 active:brightness-95 transform hover:scale-[1.02] active:scale-[0.98];
 }
 
 .btn-secondary {
-  @apply bg-white dark:bg-dark-card text-gray-700 dark:text-dark-text border border-gray-200 dark:border-dark-border shadow-soft hover:shadow-elevated focus:ring-primary-500 transform hover:scale-105 active:scale-95;
+  @apply bg-white dark:bg-dark-card text-gray-700 dark:text-dark-text border border-gray-200 dark:border-dark-border shadow-soft hover:shadow-elevated transform hover:scale-[1.02] active:scale-[0.98];
 }
 
 .btn-accent {
-  @apply bg-gradient-to-r from-accent-600 to-accent-700 text-white shadow-soft hover:shadow-elevated focus:ring-accent-500 transform hover:scale-105 active:scale-95;
+  @apply bg-gradient-to-r from-accent-600 to-accent-700 text-white shadow-elevated hover:shadow-premium transform hover:scale-[1.02] active:scale-[0.98];
 }
 
 .btn-ghost {
-  @apply bg-transparent text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-surface focus:ring-primary-500 transform hover:scale-105 active:scale-95;
+  @apply bg-transparent text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-surface transform hover:scale-[1.01] active:scale-[0.99];
 }
 
 .btn-danger {
@@ -150,7 +152,7 @@ code {
 }
 
 .form-input {
-  @apply appearance-none block w-full px-4 py-3 border border-gray-200 dark:border-dark-border rounded-xl placeholder-gray-400 dark:placeholder-dark-text-muted bg-white dark:bg-dark-surface text-gray-900 dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 shadow-soft;
+  @apply appearance-none block w-full px-4 sm:px-5 py-3 sm:py-3.5 border border-gray-200 dark:border-dark-border rounded-2xl placeholder-gray-400 dark:placeholder-dark-text-muted bg-white dark:bg-dark-surface text-gray-900 dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 shadow-soft;
 }
 
 .form-input:focus {
@@ -158,11 +160,11 @@ code {
 }
 
 .form-select {
-  @apply block w-full px-4 py-3 border border-gray-200 dark:border-dark-border rounded-xl bg-white dark:bg-dark-surface text-gray-900 dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 shadow-soft;
+  @apply block w-full px-4 sm:px-5 py-3 sm:py-3.5 border border-gray-200 dark:border-dark-border rounded-2xl bg-white dark:bg-dark-surface text-gray-900 dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 shadow-soft;
 }
 
 .form-textarea {
-  @apply appearance-none block w-full px-4 py-3 border border-gray-200 dark:border-dark-border rounded-xl placeholder-gray-400 dark:placeholder-dark-text-muted bg-white dark:bg-dark-surface text-gray-900 dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 resize-y shadow-soft;
+  @apply appearance-none block w-full px-4 sm:px-5 py-3 sm:py-3.5 border border-gray-200 dark:border-dark-border rounded-2xl placeholder-gray-400 dark:placeholder-dark-text-muted bg-white dark:bg-dark-surface text-gray-900 dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 resize-y shadow-soft;
 }
 
 .form-checkbox {
@@ -183,7 +185,7 @@ code {
 
 /* Modern Card Styles */
 .card {
-  @apply bg-white dark:bg-dark-card rounded-2xl border border-gray-200 dark:border-dark-border transition-all duration-300 hover:shadow-elevated backdrop-blur-sm;
+  @apply bg-white dark:bg-dark-card rounded-3xl border border-gray-200 dark:border-dark-border transition-all duration-300 hover:shadow-elevated backdrop-blur-sm;
   box-shadow: var(--shadow-soft);
 }
 
@@ -202,15 +204,15 @@ code {
 }
 
 .card-header {
-  @apply px-6 py-5 border-b border-gray-200 dark:border-dark-border;
+  @apply px-6 sm:px-7 py-5 sm:py-6 border-b border-gray-200 dark:border-dark-border;
 }
 
 .card-body {
-  @apply px-6 py-5;
+  @apply px-6 sm:px-7 py-5 sm:py-6;
 }
 
 .card-footer {
-  @apply px-6 py-5 border-t border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-surface/50 rounded-b-2xl;
+  @apply px-6 sm:px-7 py-5 sm:py-6 border-t border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-surface/50 rounded-b-2xl;
 }
 
 /* Modern Badge Styles */
@@ -266,7 +268,7 @@ code {
 /* Table Styles */
 .table {
   @apply min-w-full divide-y divide-gray-200 dark:divide-dark-border;
-  min-width: 1200px; /* Ensure table has minimum width for all columns */
+  min-width: 100%;
 }
 
 .table-header {
@@ -373,11 +375,11 @@ code {
 
 /* Responsive Design Helpers */
 .container-custom {
-  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-10;
 }
 
 .section-padding {
-  @apply py-16 sm:py-20 lg:py-24;
+  @apply py-14 sm:py-18 lg:py-24;
 }
 
 /* Focus Styles */

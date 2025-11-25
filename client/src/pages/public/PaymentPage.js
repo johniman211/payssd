@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   CurrencyDollarIcon,
@@ -23,7 +24,11 @@ const PaymentPage = () => {
     name: '',
     phoneNumber: '+211',
     email: '',
-    paymentMethod: 'mtn_momo'
+    paymentMethod: 'card',
+    cardNumber: '',
+    cardExpiry: '',
+    cardCvv: '',
+    cardName: ''
   });
   const [validationErrors, setValidationErrors] = useState({});
 
@@ -37,11 +42,11 @@ const PaymentPage = () => {
       if (response.data.success) {
         setPaymentLink(response.data.paymentLink);
         
-        // Set default payment method to first available
+        // Prefer 'card' as default, else first available
         if (response.data.paymentLink.allowedPaymentMethods?.length > 0) {
           setFormData(prev => ({
             ...prev,
-            paymentMethod: response.data.paymentLink.allowedPaymentMethods[0]
+            paymentMethod: 'card'
           }));
         }
       } else {
@@ -96,51 +101,79 @@ const PaymentPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     if (!validateForm()) {
       toast.error('Please fix the errors in the form');
       return;
     }
-    
+    launchFlutterwaveCheckout();
+  };
+
+  const launchFlutterwaveCheckout = () => {
+    const publicKey = process.env.REACT_APP_FLUTTERWAVE_PUBLIC_KEY;
+    if (!publicKey || typeof window === 'undefined' || !window.FlutterwaveCheckout) {
+      toast.error('Payment gateway unavailable. Please try again later.');
+      return;
+    }
+
+    setProcessing(true);
+
+    const tx_ref = `payssd-${linkId}-${Date.now()}`;
+    const amount = paymentLink.amount;
+    const currency = paymentLink.currency || 'SSP';
+
+    const paymentOptionsMap = {
+      card: 'card',
+      mpesa: 'mpesa',
+      mtn_momo: 'mobilemoney',
+      bank_transfer: 'banktransfer'
+    };
+    const payment_options = paymentOptionsMap[formData.paymentMethod] || 'card';
+
     try {
-      setProcessing(true);
-      
-      const submitData = {
-        linkId: linkId,
-        paymentMethod: formData.paymentMethod,
+      window.FlutterwaveCheckout({
+        public_key: publicKey,
+        tx_ref,
+        amount,
+        currency,
+        payment_options,
         customer: {
-          name: formData.name,
-          phoneNumber: formData.phoneNumber,
-          email: formData.email || undefined
+          email: formData.email || undefined,
+          phone_number: formData.phoneNumber,
+          name: formData.name
+        },
+        meta: {
+          linkId,
+          selected_method: formData.paymentMethod
+        },
+        customizations: {
+          title: paymentLink.title,
+          description: paymentLink.description,
+          logo: paymentLink.customization?.logo || undefined
+        },
+        callback: (data) => {
+          // Example data: { status, transaction_id, tx_ref, currency, amount } 
+          toast.success('Payment successful');
+          const transaction = {
+            id: data.transaction_id,
+            status: data.status,
+            tx_ref: data.tx_ref,
+            amount: data.amount,
+            currency: data.currency,
+            method: formData.paymentMethod
+          };
+          localStorage.setItem('lastTransaction', JSON.stringify(transaction));
+          setProcessing(false);
+          navigate('/payment/success', { state: { transaction, paymentLink } });
+        },
+        onclose: () => {
+          setProcessing(false);
+          toast('Payment window closed', { icon: '👋' });
         }
-      };
-      
-      const response = await axios.post('/api/payments/process', submitData);
-      
-      if (response.data.success) {
-        toast.success('Payment initiated successfully!');
-        
-        // Store transaction info for success page
-        localStorage.setItem('lastTransaction', JSON.stringify(response.data.transaction));
-        
-        // Navigate to success page
-        navigate('/payment/success', { 
-          state: { 
-            transaction: response.data.transaction,
-            paymentLink: paymentLink
-          }
-        });
-      } else {
-        toast.error(response.data.message || 'Payment failed');
-      }
-      
+      });
     } catch (err) {
-      console.error('Payment error:', err);
-      const errorMessage = err.response?.data?.message || 'Payment processing failed';
-      toast.error(errorMessage);
-      setError(errorMessage);
-    } finally {
+      console.error('Flutterwave checkout error:', err);
       setProcessing(false);
+      toast.error('Failed to launch checkout');
     }
   };
 
@@ -154,10 +187,14 @@ const PaymentPage = () => {
 
   const getPaymentMethodIcon = (method) => {
     switch (method) {
+      case 'card':
+        return '💳';
+      case 'mpesa':
+        return '📲';
       case 'mtn_momo':
         return '📱';
-      case 'digicash':
-        return '💳';
+      case 'bank_transfer':
+        return '🏦';
       default:
         return '💰';
     }
@@ -165,10 +202,14 @@ const PaymentPage = () => {
 
   const getPaymentMethodName = (method) => {
     switch (method) {
+      case 'card':
+        return 'Card Payment';
+      case 'mpesa':
+        return 'Mpesa';
       case 'mtn_momo':
         return 'MTN Mobile Money';
-      case 'digicash':
-        return 'Digicash';
+      case 'bank_transfer':
+        return 'Bank Transfer';
       default:
         return method;
     }
@@ -215,7 +256,7 @@ const PaymentPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md mx-auto">
+      <div className="max-w-2xl mx-auto">
         {/* Payment Link Info */}
         <div className="bg-white rounded-lg shadow-lg mb-6 overflow-hidden">
           {/* Header with customization */}
@@ -241,7 +282,14 @@ const PaymentPage = () => {
           
           {/* Description */}
           <div className="px-6 py-4">
-            <p className="text-gray-600">{paymentLink.description}</p>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <p className="text-gray-600 flex-1">{paymentLink.description}</p>
+              <div className="bg-gray-100 rounded-xl px-4 py-3 text-sm text-gray-700">
+                <div className="font-semibold">Total</div>
+                <div>{formatCurrency(paymentLink.amount, paymentLink.currency)}</div>
+                <div className="text-xs text-gray-500">Converted if required during checkout</div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -319,40 +367,63 @@ const PaymentPage = () => {
               </div>
             </div>
 
-            {/* Payment Method */}
+            {/* Payment Method Selector */}
             <div>
               <h3 className="text-sm font-medium text-gray-900 mb-3">Payment Method</h3>
-              <div className="space-y-2">
-                {paymentLink.allowedPaymentMethods.map((method) => (
-                  <label
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {['card','mpesa','mtn_momo','bank_transfer'].map((method) => (
+                  <button
+                    type="button"
                     key={method}
-                    className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors ${
-                      formData.paymentMethod === method
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-300 hover:border-gray-400'
+                    onClick={() => setFormData(prev => ({ ...prev, paymentMethod: method }))}
+                    className={`flex items-center justify-center gap-2 p-3 rounded-xl border transition-all ${
+                      formData.paymentMethod === method ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value={method}
-                      checked={formData.paymentMethod === method}
-                      onChange={handleInputChange}
-                      className="sr-only"
-                    />
-                    <span className="text-2xl mr-3">{getPaymentMethodIcon(method)}</span>
-                    <div>
-                      <div className="font-medium text-gray-900">
-                        {getPaymentMethodName(method)}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {method === 'mtn_momo' ? 'Pay with MTN Mobile Money' : 'Pay with Digicash'}
-                      </div>
-                    </div>
-                  </label>
+                    <span className="text-xl">{getPaymentMethodIcon(method)}</span>
+                    <span className="text-sm font-semibold">{getPaymentMethodName(method)}</span>
+                  </button>
                 ))}
               </div>
             </div>
+
+            {/* Method-specific fields */}
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+              {formData.paymentMethod === 'card' && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium text-gray-900">Card Details</h3>
+                  <input type="text" name="cardNumber" value={formData.cardNumber} onChange={handleInputChange} placeholder="Card Number" className="w-full px-3 py-2 border rounded-md" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input type="text" name="cardExpiry" value={formData.cardExpiry} onChange={handleInputChange} placeholder="MM/YY" className="w-full px-3 py-2 border rounded-md" />
+                    <input type="text" name="cardCvv" value={formData.cardCvv} onChange={handleInputChange} placeholder="CVV" className="w-full px-3 py-2 border rounded-md" />
+                  </div>
+                  <input type="text" name="cardName" value={formData.cardName} onChange={handleInputChange} placeholder="Cardholder Name" className="w-full px-3 py-2 border rounded-md" />
+                </div>
+              )}
+
+              {formData.paymentMethod === 'mpesa' && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-gray-900">Mpesa Details</h3>
+                  <p className="text-xs text-gray-600">Enter your phone number. You will be prompted to authorize the payment.</p>
+                </div>
+              )}
+
+              {formData.paymentMethod === 'mtn_momo' && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-gray-900">MTN Mobile Money</h3>
+                  <p className="text-xs text-gray-600">We will send an authorization request to your MTN MoMo wallet.</p>
+                </div>
+              )}
+
+              {formData.paymentMethod === 'bank_transfer' && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-gray-900">Bank Transfer Instructions</h3>
+                  <div className="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    Transfer the total amount to the provided bank account during checkout. Your payment will be verified automatically.
+                  </div>
+                </div>
+              )}
+            </motion.div>
 
             {/* Security Notice */}
             <div className="bg-green-50 border border-green-200 rounded-lg p-3">
@@ -371,7 +442,7 @@ const PaymentPage = () => {
             <button
               type="submit"
               disabled={processing}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+              className="w-full bg-primary-600 text-white py-3 px-4 rounded-2xl font-bold hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all flex items-center justify-center"
             >
               {processing ? (
                 <>
@@ -381,7 +452,7 @@ const PaymentPage = () => {
               ) : (
                 <>
                   <CurrencyDollarIcon className="h-5 w-5 mr-2" />
-                  Pay {formatCurrency(paymentLink.amount, paymentLink.currency)}
+                  Pay Now ({formatCurrency(paymentLink.amount, paymentLink.currency)})
                 </>
               )}
             </button>

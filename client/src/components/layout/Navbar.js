@@ -214,6 +214,7 @@ const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white p-2"
+                aria-label="Toggle menu"
               >
                 {isMenuOpen ? (
                   <XMarkIcon className="h-6 w-6" />

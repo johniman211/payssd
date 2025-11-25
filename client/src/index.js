@@ -6,14 +6,16 @@ import App from './App';
 // Global error handlers to prevent white screen issues
 window.addEventListener('error', (event) => {
   console.error('Global error caught:', event.error);
-  // Prevent the error from causing a white screen
-  event.preventDefault();
+  if (process.env.NODE_ENV === 'production') {
+    event.preventDefault();
+  }
 });
 
 window.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled promise rejection:', event.reason);
-  // Prevent the rejection from causing a white screen
-  event.preventDefault();
+  if (process.env.NODE_ENV === 'production') {
+    event.preventDefault();
+  }
 });
 
 // Add performance monitoring
