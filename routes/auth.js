@@ -283,9 +283,6 @@ router.post('/login', authLimiter, [
 ], async (req, res) => {
   try {
     const settings = await getSettings();
-    if (settings?.general?.maintenanceMode) {
-      return res.status(503).json({ success: false, message: 'System maintenance in progress. Login is temporarily disabled.' });
-    }
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -304,6 +301,11 @@ router.post('/login', authLimiter, [
         success: false,
         message: 'Invalid credentials'
       });
+    }
+
+    // During maintenance, allow admins to log in but block others
+    if (settings?.general?.maintenanceMode && user.role !== 'admin') {
+      return res.status(503).json({ success: false, message: 'System maintenance in progress. Login is temporarily disabled.' });
     }
 
     // Check if account is locked
