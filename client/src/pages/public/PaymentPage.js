@@ -105,75 +105,26 @@ const PaymentPage = () => {
       toast.error('Please fix the errors in the form');
       return;
     }
-    launchFlutterwaveCheckout();
-  };
-
-  const launchFlutterwaveCheckout = () => {
-    const publicKey = process.env.REACT_APP_FLUTTERWAVE_PUBLIC_KEY;
-    if (!publicKey || typeof window === 'undefined' || !window.FlutterwaveCheckout) {
-      toast.error('Payment gateway unavailable. Please try again later.');
-      return;
-    }
-
-    setProcessing(true);
-
-    const tx_ref = `payssd-${linkId}-${Date.now()}`;
-    const amount = paymentLink.amount;
-    const currency = paymentLink.currency || 'SSP';
-
-    const paymentOptionsMap = {
-      card: 'card',
-      mpesa: 'mpesa',
-      mtn_momo: 'mobilemoney',
-      bank_transfer: 'banktransfer'
-    };
-    const payment_options = paymentOptionsMap[formData.paymentMethod] || 'card';
-
     try {
-      window.FlutterwaveCheckout({
-        public_key: publicKey,
-        tx_ref,
-        amount,
-        currency,
-        payment_options,
+      setProcessing(true);
+      const { data } = await axios.post('/api/payments/flutterwave/initiate', {
+        linkId,
         customer: {
+          name: formData.name,
+          phoneNumber: formData.phoneNumber,
           email: formData.email || undefined,
-          phone_number: formData.phoneNumber,
-          name: formData.name
         },
-        meta: {
-          linkId,
-          selected_method: formData.paymentMethod
-        },
-        customizations: {
-          title: paymentLink.title,
-          description: paymentLink.description,
-          logo: paymentLink.customization?.logo || undefined
-        },
-        callback: (data) => {
-          // Example data: { status, transaction_id, tx_ref, currency, amount } 
-          toast.success('Payment successful');
-          const transaction = {
-            id: data.transaction_id,
-            status: data.status,
-            tx_ref: data.tx_ref,
-            amount: data.amount,
-            currency: data.currency,
-            method: formData.paymentMethod
-          };
-          localStorage.setItem('lastTransaction', JSON.stringify(transaction));
-          setProcessing(false);
-          navigate('/payment/success', { state: { transaction, paymentLink } });
-        },
-        onclose: () => {
-          setProcessing(false);
-          toast('Payment window closed', { icon: '👋' });
-        }
       });
+      if (data?.success && data?.redirectLink) {
+        window.location.href = data.redirectLink;
+      } else {
+        toast.error(data?.message || 'Failed to initiate payment');
+        setProcessing(false);
+      }
     } catch (err) {
-      console.error('Flutterwave checkout error:', err);
+      console.error('Initiate payment error:', err);
+      toast.error(err.response?.data?.message || 'Payment failed to start');
       setProcessing(false);
-      toast.error('Failed to launch checkout');
     }
   };
 
@@ -390,14 +341,9 @@ const PaymentPage = () => {
             {/* Method-specific fields */}
             <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
               {formData.paymentMethod === 'card' && (
-                <div className="space-y-4">
-                  <h3 className="text-sm font-medium text-gray-900">Card Details</h3>
-                  <input type="text" name="cardNumber" value={formData.cardNumber} onChange={handleInputChange} placeholder="Card Number" className="w-full px-3 py-2 border rounded-md" />
-                  <div className="grid grid-cols-2 gap-3">
-                    <input type="text" name="cardExpiry" value={formData.cardExpiry} onChange={handleInputChange} placeholder="MM/YY" className="w-full px-3 py-2 border rounded-md" />
-                    <input type="text" name="cardCvv" value={formData.cardCvv} onChange={handleInputChange} placeholder="CVV" className="w-full px-3 py-2 border rounded-md" />
-                  </div>
-                  <input type="text" name="cardName" value={formData.cardName} onChange={handleInputChange} placeholder="Cardholder Name" className="w-full px-3 py-2 border rounded-md" />
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-gray-900">Card Payment</h3>
+                  <p className="text-xs text-gray-600">You will enter card details securely on Flutterwave.</p>
                 </div>
               )}
 

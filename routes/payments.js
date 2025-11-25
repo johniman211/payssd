@@ -7,6 +7,8 @@ const User = require('../models/User');
 const { auth, merchantAuth, kycVerified, apiKeyAuth, optionalAuth } = require('../middleware/auth');
 const { requireEmailVerification } = require('../middleware/emailVerification');
 const { processMTNPayment, processDigicashPayment } = require('../services/paymentService');
+const { getFlutterwaveService } = require('../services/flutterwaveService');
+const Settings = require('../models/Settings');
 const { sendWebhook, verifyWebhookSignature } = require('../services/webhookService');
 const { sendNotification } = require('../services/notificationService');
 
@@ -455,6 +457,163 @@ router.post('/process', [
       success: false,
       message: 'Server error processing payment'
     });
+  }
+});
+
+// Flutterwave Standard Checkout: initiate payment and return redirect link
+router.post('/flutterwave/initiate', async (req, res) => {
+  try {
+    const { linkId, customer } = req.body;
+    if (!linkId || !customer || !customer.name || !customer.phoneNumber) {
+      return res.status(400).json({ success: false, message: 'Invalid request' });
+    }
+
+    const paymentLink = await PaymentLink.findOne({ linkId })
+      .populate('merchant', 'profile email balance');
+
+    if (!paymentLink) {
+      return res.status(404).json({ success: false, message: 'Payment link not found' });
+    }
+
+    if (!paymentLink.isAccessible()) {
+      return res.status(400).json({ success: false, message: 'Payment link is no longer available' });
+    }
+
+    // Use USD as requested
+    const amount = paymentLink.amount;
+    const currency = 'USD';
+
+    const tx_ref = 'flw_' + uuidv4().replace(/-/g, '').substring(0, 16);
+
+    const platformFee = Transaction.calculatePlatformFee(amount);
+    const transaction = new Transaction({
+      transactionId: 'txn_' + uuidv4().replace(/-/g, '').substring(0, 16),
+      reference: tx_ref,
+      merchant: paymentLink.merchant._id,
+      merchantEmail: paymentLink.merchant.email,
+      merchantBusinessName: paymentLink.merchant.profile.businessName,
+      amount,
+      currency,
+      description: paymentLink.description,
+      paymentMethod: 'flutterwave',
+      customer,
+      paymentLink: paymentLink._id,
+      fees: {
+        platformFee,
+        providerFee: 0,
+        totalFees: platformFee
+      },
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        source: 'payment_link'
+      },
+      redirectUrls: paymentLink.redirectUrls,
+      status: 'pending'
+    });
+
+    await transaction.save();
+
+    const appUrl = process.env.APP_URL || 'http://localhost:5000';
+    const redirect_url = `${appUrl}/payment/success`;
+
+    const settings = await Settings.getSettings();
+    const customizations = {
+      title: settings.general.platformName || 'PaySSD',
+      description: paymentLink.title,
+      logo: paymentLink.customization?.logo || undefined,
+    };
+
+    const service = getFlutterwaveService();
+    const initResp = await service.createPayment({
+      tx_ref,
+      amount,
+      currency,
+      redirect_url,
+      customer: {
+        email: customer.email,
+        phone_number: customer.phoneNumber,
+        name: customer.name,
+      },
+      meta: { linkId },
+      customizations,
+    });
+
+    const link = initResp?.data?.link;
+    if (!link) {
+      return res.status(500).json({ success: false, message: 'Failed to create payment' });
+    }
+
+    transaction.providerResponse = { payment_link: link, flw_tx_ref: tx_ref };
+    transaction.status = 'processing';
+    await transaction.save();
+
+    return res.json({ success: true, redirectLink: link, tx_ref });
+  } catch (error) {
+    console.error('Flutterwave initiate error:', error.response?.data || error.message);
+    return res.status(500).json({ success: false, message: 'Failed to initiate payment' });
+  }
+});
+
+// Flutterwave webhook
+router.post('/webhook/flutterwave', async (req, res) => {
+  try {
+    const secretHash = process.env.FLW_SECRET_HASH;
+    const verifHash = req.header('verif-hash');
+    if (!secretHash || !verifHash || verifHash !== secretHash) {
+      return res.status(401).json({ message: 'Invalid webhook signature' });
+    }
+
+    const event = req.body;
+    const data = event?.data;
+    const tx_ref = data?.tx_ref;
+    const flwId = data?.id;
+    const status = data?.status;
+
+    if (!tx_ref) {
+      return res.status(400).json({ message: 'Missing tx_ref' });
+    }
+
+    const transaction = await Transaction.findOne({ reference: tx_ref }).populate('merchant', 'email profile balance apiKeys');
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+
+    const oldStatus = transaction.status;
+    if (status === 'successful') {
+      transaction.status = 'successful';
+      transaction.completedAt = new Date();
+      const merchantReceives = transaction.amount - transaction.fees.totalFees;
+      await User.findByIdAndUpdate(transaction.merchant._id, { $inc: { 'balance.available': merchantReceives } });
+      if (transaction.paymentLink) {
+        const paymentLink = await PaymentLink.findById(transaction.paymentLink);
+        if (paymentLink) await paymentLink.recordPayment(transaction.amount);
+      }
+    } else if (status === 'failed' || status === 'cancelled') {
+      transaction.status = 'failed';
+    }
+
+    transaction.providerResponse = {
+      ...transaction.providerResponse,
+      flw_id: flwId,
+      flw_event: event?.event,
+      flw_status: status,
+      lastChecked: new Date()
+    };
+
+    await transaction.save();
+
+    if (oldStatus !== transaction.status) {
+      await sendNotification(transaction);
+      if (transaction.merchant.apiKeys?.webhookUrl) {
+        await sendWebhook(transaction.merchant.apiKeys.webhookUrl, transaction, transaction.merchant.apiKeys.webhookSecret);
+      }
+    }
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Flutterwave webhook error:', error);
+    return res.status(500).json({ message: 'Webhook processing failed' });
   }
 });
 
