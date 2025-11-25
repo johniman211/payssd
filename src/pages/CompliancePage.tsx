@@ -1,7 +1,9 @@
+import { Mail } from "lucide-react";
+
 import React from 'react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
-import { Shield, Lock, CheckCircle, FileText, Award, Users, Eye, CreditCard, Mail } from 'lucide-react';
+import { Shield, Lock, CheckCircle, FileText, Award, Users, Eye, CreditCard, Mail as MailIcon } from 'lucide-react';
 
 export const CompliancePage: React.FC = () => {
   const certifications = [
@@ -274,7 +276,7 @@ export const CompliancePage: React.FC = () => {
               href="mailto:compliance@payssd.com" 
               className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700"
             >
-              <Mail className="h-5 w-5 mr-2" />
+              <MailIcon className="h-5 w-5 mr-2" />
               compliance@payssd.com
             </a>
             <a 
