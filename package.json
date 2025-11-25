@@ -5,5 +5,20 @@
   "scripts": {
     "start": "node server.js",
     "build": "node build-render.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^7.6.1",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "express-rate-limit": "^6.7.0",
+    "dotenv": "^16.4.5",
+    "socket.io": "^4.7.5",
+    "jsonwebtoken": "^9.0.2",
+    "axios": "^1.7.4",
+    "multer": "^1.4.5-lts.1",
+    "express-validator": "^7.0.1",
+    "uuid": "^9.0.1",
+    "nodemailer": "^6.9.11"
   }
 }
