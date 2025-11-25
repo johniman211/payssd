@@ -113,8 +113,6 @@ const PricingPage = () => {
                   )}
                   <div className={`${plan.popular ? 'text-primary-100' : 'text-gray-500 dark:text-gray-400'} text-sm`}>No hidden fees</div>
                 </div>
-                  )}
-                </div>
               </div>
 
               <ul className="mt-8 space-y-4">
