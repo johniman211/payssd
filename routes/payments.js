@@ -555,6 +555,65 @@ router.post('/flutterwave/initiate', async (req, res) => {
   }
 });
 
+// Flutterwave prepare: create local transaction and return tx_ref for popup checkout
+router.post('/flutterwave/prepare', async (req, res) => {
+  try {
+    const { linkId, customer } = req.body;
+    if (!linkId || !customer || !customer.name || !customer.phoneNumber) {
+      return res.status(400).json({ success: false, message: 'Invalid request' });
+    }
+
+    const paymentLink = await PaymentLink.findOne({ linkId })
+      .populate('merchant', 'profile email balance');
+
+    if (!paymentLink) {
+      return res.status(404).json({ success: false, message: 'Payment link not found' });
+    }
+
+    if (!paymentLink.isAccessible()) {
+      return res.status(400).json({ success: false, message: 'Payment link is no longer available' });
+    }
+
+    const amount = paymentLink.amount;
+    const currency = 'USD';
+    const tx_ref = 'flw_' + uuidv4().replace(/-/g, '').substring(0, 16);
+
+    const platformFee = Transaction.calculatePlatformFee(amount);
+    const transaction = new Transaction({
+      transactionId: 'txn_' + uuidv4().replace(/-/g, '').substring(0, 16),
+      reference: tx_ref,
+      merchant: paymentLink.merchant._id,
+      merchantEmail: paymentLink.merchant.email,
+      merchantBusinessName: paymentLink.merchant.profile.businessName,
+      amount,
+      currency,
+      description: paymentLink.description,
+      paymentMethod: 'flutterwave',
+      customer,
+      paymentLink: paymentLink._id,
+      fees: {
+        platformFee,
+        providerFee: 0,
+        totalFees: platformFee
+      },
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        source: 'payment_link'
+      },
+      redirectUrls: paymentLink.redirectUrls,
+      status: 'pending'
+    });
+
+    await transaction.save();
+
+    return res.json({ success: true, tx_ref, amount, currency });
+  } catch (error) {
+    console.error('Flutterwave prepare error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to prepare payment' });
+  }
+});
+
 // Flutterwave webhook
 router.post('/webhook/flutterwave', async (req, res) => {
   try {

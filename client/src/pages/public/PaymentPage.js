@@ -37,6 +37,13 @@ const PaymentPage = () => {
 
   useEffect(() => {
     fetchPaymentLink();
+    // Load Flutterwave script for popup checkout
+    if (typeof window !== 'undefined' && !window.FlutterwaveCheckout) {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.flutterwave.com/v3.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }
   }, [linkId]);
 
   const fetchPaymentLink = async () => {
@@ -108,7 +115,8 @@ const PaymentPage = () => {
     }
     try {
       setProcessing(true);
-      const { data } = await axios.post('/api/payments/flutterwave/initiate', {
+      // Prepare local transaction and get tx_ref
+      const prep = await axios.post('/api/payments/flutterwave/prepare', {
         linkId,
         customer: {
           name: formData.name,
@@ -116,12 +124,57 @@ const PaymentPage = () => {
           email: formData.email || undefined,
         },
       });
-      if (data?.success && data?.redirectLink) {
-        window.location.href = data.redirectLink;
-      } else {
-        toast.error(data?.message || 'Failed to initiate payment');
+      if (!prep.data?.success) {
+        toast.error(prep.data?.message || 'Failed to prepare payment');
         setProcessing(false);
+        return;
       }
+
+      const publicKey = process.env.REACT_APP_FLUTTERWAVE_PUBLIC_KEY;
+      if (!publicKey || typeof window === 'undefined' || !window.FlutterwaveCheckout) {
+        toast.error('Payment gateway unavailable. Please try again later.');
+        setProcessing(false);
+        return;
+      }
+
+      const { tx_ref, amount, currency } = prep.data;
+
+      window.FlutterwaveCheckout({
+        public_key: publicKey,
+        tx_ref,
+        amount,
+        currency,
+        payment_options: 'card,mpesa,mobilemoney,banktransfer',
+        customer: {
+          email: formData.email || undefined,
+          phone_number: formData.phoneNumber,
+          name: formData.name,
+        },
+        meta: { linkId },
+        customizations: {
+          title: paymentLink.title,
+          description: paymentLink.description,
+          logo: paymentLink.customization?.logo || undefined,
+        },
+        callback: (data) => {
+          // relying on webhook for definitive status update
+          toast.success('Payment attempted');
+          const transaction = {
+            id: data.transaction_id,
+            status: data.status,
+            tx_ref: data.tx_ref,
+            amount: data.amount,
+            currency: data.currency,
+          };
+          localStorage.setItem('lastTransaction', JSON.stringify(transaction));
+          setProcessing(false);
+          navigate('/payment/success', { state: { transaction, paymentLink } });
+        },
+        onclose: () => {
+          setProcessing(false);
+          toast('Payment window closed', { icon: '👋' });
+        },
+      });
     } catch (err) {
       console.error('Initiate payment error:', err);
       toast.error(err.response?.data?.message || 'Payment failed to start');
@@ -335,28 +388,18 @@ const PaymentPage = () => {
                     )}
                   </div>
 
-                  {/* Payment Method Selector */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
-                      Payment Method
+                  {/* Payment Methods Info */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Available Methods
                     </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      {['card','mpesa','mtn_momo','bank_transfer'].map((method) => (
-                        <button
-                          type="button"
-                          key={method}
-                          onClick={() => setFormData(prev => ({ ...prev, paymentMethod: method }))}
-                          className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${
-                            formData.paymentMethod === method 
-                              ? 'border-primary-500 bg-primary-50 text-primary-700' 
-                              : 'border-gray-200 hover:border-gray-300 text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          <PaymentMethodLogo method={method} />
-                          <span className="text-sm font-medium">{getPaymentMethodName(method)}</span>
-                        </button>
-                      ))}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <PaymentMethodLogo method="card" />
+                      <PaymentMethodLogo method="mpesa" />
+                      <PaymentMethodLogo method="mtn_momo" />
+                      <PaymentMethodLogo method="bank_transfer" />
                     </div>
+                    <p className="text-xs text-gray-600">Click Pay to choose a method in the secure popup.</p>
                   </div>
 
                   {/* Method-specific fields */}
@@ -369,7 +412,7 @@ const PaymentPage = () => {
                       transition={{ duration: 0.2 }}
                       className="bg-gray-50 rounded-xl p-4 border border-gray-200"
                     >
-                      {formData.paymentMethod === 'card' && (
+                      {true && (
                         <div className="flex items-center justify-between">
                           <div className="flex items-center">
                             <CreditCardIcon className="h-5 w-5 text-gray-600 mr-3" />
@@ -382,7 +425,7 @@ const PaymentPage = () => {
                         </div>
                       )}
 
-                      {formData.paymentMethod === 'mpesa' && (
+                      {false && (
                         <div className="flex items-center justify-between">
                           <div className="flex items-center">
                             <div className="w-5 h-5 mr-3" />
@@ -395,7 +438,7 @@ const PaymentPage = () => {
                         </div>
                       )}
 
-                      {formData.paymentMethod === 'mtn_momo' && (
+                      {false && (
                         <div className="flex items-center justify-between">
                           <div className="flex items-center">
                             <div className="w-5 h-5 mr-3" />
@@ -408,7 +451,7 @@ const PaymentPage = () => {
                         </div>
                       )}
 
-                      {formData.paymentMethod === 'bank_transfer' && (
+                      {false && (
                         <div className="flex items-center justify-between">
                           <div className="flex items-center">
                             <div className="w-5 h-5 mr-3" />
