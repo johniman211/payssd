@@ -111,8 +111,8 @@ console.log('✅ index.html found at:', indexPath);
 
 try {
     // Install client dependencies
-    console.log('\n📦 Installing client dependencies...');
-    execSync('npm install', { 
+    console.log('\n📦 Installing client dependencies (including dev)...');
+    execSync('npm install --include=dev', { 
         cwd: clientDir, 
         stdio: 'inherit',
         env: { ...process.env, PWD: clientDir }
