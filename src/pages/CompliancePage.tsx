@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
-import { Shield, Lock, CheckCircle, FileText, Award, Users, Eye, CreditCard } from 'lucide-react';
+import { Shield, Lock, CheckCircle, FileText, Award, Users, Eye, CreditCard, Mail } from 'lucide-react';
 
 export const CompliancePage: React.FC = () => {
   const certifications = [
