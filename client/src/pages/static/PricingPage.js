@@ -8,61 +8,44 @@ const PricingPage = () => {
   const plans = [
     {
       name: 'Starter',
-      monthlyFee: 'SSP 0',
+      monthlyFee: 'Free',
       transactionFee: '5%',
-      volume: 'Monthly volume limit: SSP 300,000',
-      description: 'Perfect for getting started',
+      description: 'Ideal for individuals and small sellers',
       features: [
         'Basic dashboard',
         'Standard payouts',
         'Email/SMS notifications',
-        'Limited support'
+        'Basic reporting'
       ],
-      cta: 'Get Started',
+      cta: 'Get Started Free',
       popular: false
     },
     {
-      name: 'Growth',
-      monthlyFee: 'SSP 10,000/month',
-      transactionFee: '3.5%',
-      volume: 'Monthly volume: up to SSP 5,000,000',
-      description: 'For growing businesses',
+      name: 'Pro',
+      monthlyFee: '$10 USD/month',
+      transactionFee: '1.5%',
+      description: 'Ideal for small–medium merchants',
       features: [
         'Faster payouts',
-        'Branded receipts',
-        'Team accounts',
         'Advanced analytics',
-        'Priority support'
+        'Custom branding',
+        'Priority support',
+        'Team accounts'
       ],
-      cta: 'Upgrade',
+      cta: 'Upgrade to Pro',
       popular: true
     },
     {
-      name: 'Business Pro',
-      monthlyFee: 'SSP 45,000/month',
-      transactionFee: '2.2%',
-      volume: 'Unlimited volume',
-      description: 'For established businesses',
-      features: [
-        'Custom payment flows',
-        'SLA',
-        'Advanced reporting',
-        'Dedicated account manager'
-      ],
-      cta: 'Upgrade',
-      popular: false
-    },
-    {
-      name: 'Enterprise',
-      monthlyFee: 'Custom pricing',
-      transactionFee: '1%–2%',
-      volume: 'Unlimited volume',
-      description: 'For large organizations',
+      name: 'Private Account',
+      monthlyFee: 'Contact Us',
+      transactionFee: 'Custom Rate',
+      description: 'For large businesses & institutions',
       features: [
         'White-labeling',
         'API access',
-        'Bulk payout automation',
-        'Dedicated support'
+        'Dedicated support',
+        'SLA',
+        'Custom payment flows'
       ],
       cta: 'Contact Sales',
       popular: false
@@ -99,7 +82,7 @@ const PricingPage = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.4 }}
-          className="mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
+          className="mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"
         >
           {plans.map((plan, index) => (
             <motion.div
@@ -114,7 +97,7 @@ const PricingPage = () => {
               {plan.popular && (
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                   <span className="bg-gradient-to-r from-accent-400 to-accent-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
-                    Recommended
+                    Most Popular
                   </span>
                 </div>
               )}
@@ -125,7 +108,12 @@ const PricingPage = () => {
                 <div className="mt-4 space-y-2">
                   <div className={`text-3xl font-bold ${plan.popular ? 'text-white' : 'text-gray-900 dark:text-white'}`}>{plan.monthlyFee}</div>
                   <div className={`${plan.popular ? 'text-primary-100' : 'text-gray-600 dark:text-gray-300'}`}>Transaction fee: {plan.transactionFee}</div>
-                  <div className={`${plan.popular ? 'text-primary-100' : 'text-gray-600 dark:text-gray-300'}`}>{plan.volume}</div>
+                  {plan.volume && (
+                    <div className={`${plan.popular ? 'text-primary-100' : 'text-gray-600 dark:text-gray-300'}`}>{plan.volume}</div>
+                  )}
+                  <div className={`${plan.popular ? 'text-primary-100' : 'text-gray-500 dark:text-gray-400'} text-sm`}>No hidden fees</div>
+                </div>
+                  )}
                 </div>
               </div>
 

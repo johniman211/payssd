@@ -114,61 +114,44 @@ const LandingPage = () => {
   const pricingPlans = [
     {
       name: 'Starter',
-      monthlyFee: 'SSP 0',
+      monthlyFee: 'Free',
       transactionFee: '5%',
-      volume: 'Monthly volume limit: SSP 300,000',
-      description: 'Perfect for small businesses and startups',
+      description: 'Ideal for individuals and small sellers',
       features: [
         'Basic dashboard',
         'Standard payouts',
         'Email/SMS notifications',
-        'Limited support'
+        'Basic reporting'
       ],
-      cta: 'Get Started',
+      cta: 'Get Started Free',
       popular: false
     },
     {
-      name: 'Growth',
-      monthlyFee: 'SSP 10,000/month',
-      transactionFee: '3.5%',
-      volume: 'Monthly volume: up to SSP 5,000,000',
-      description: 'Ideal for growing businesses',
+      name: 'Pro',
+      monthlyFee: '$10 USD/month',
+      transactionFee: '1.5%',
+      description: 'Ideal for small–medium merchants',
       features: [
         'Faster payouts',
-        'Branded receipts',
-        'Team accounts',
         'Advanced analytics',
-        'Priority support'
+        'Custom branding',
+        'Priority support',
+        'Team accounts'
       ],
-      cta: 'Upgrade',
+      cta: 'Upgrade to Pro',
       popular: true
     },
     {
-      name: 'Business Pro',
-      monthlyFee: 'SSP 45,000/month',
-      transactionFee: '2.2%',
-      volume: 'Unlimited volume',
-      description: 'For established businesses',
-      features: [
-        'Custom payment flows',
-        'SLA',
-        'Advanced reporting',
-        'Dedicated account manager'
-      ],
-      cta: 'Upgrade',
-      popular: false
-    },
-    {
-      name: 'Enterprise',
-      monthlyFee: 'Custom pricing',
-      transactionFee: '1%–2%',
-      volume: 'Unlimited volume',
-      description: 'For large businesses and organizations',
+      name: 'Private Account',
+      monthlyFee: 'Contact Us',
+      transactionFee: 'Custom Rate',
+      description: 'For large businesses & institutions',
       features: [
         'White-labeling',
         'API access',
-        'Bulk payout automation',
-        'Dedicated support'
+        'Dedicated support',
+        'SLA',
+        'Custom payment flows'
       ],
       cta: 'Contact Sales',
       popular: false
@@ -560,7 +543,7 @@ const LandingPage = () => {
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"
           >
             {pricingPlans.map((plan, index) => (
               <motion.div
@@ -616,9 +599,11 @@ const LandingPage = () => {
                     <div className={`${plan.popular ? 'text-primary-100' : 'text-gray-600 dark:text-gray-300'}`}>
                       Transaction fee: {plan.transactionFee}
                     </div>
-                    <div className={`${plan.popular ? 'text-primary-100' : 'text-gray-600 dark:text-gray-300'}`}>
-                      {plan.volume}
-                    </div>
+                    {plan.volume && (
+                      <div className={`${plan.popular ? 'text-primary-100' : 'text-gray-600 dark:text-gray-300'}`}>
+                        {plan.volume}
+                      </div>
+                    )}
                   </div>
                   
                   <ul className="space-y-4 mb-8 text-left">
