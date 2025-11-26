@@ -25,8 +25,8 @@ const payoutSchema = new mongoose.Schema({
   },
   currency: {
     type: String,
-    default: 'SSP',
-    enum: ['SSP', 'USD']
+    default: 'USD',
+    enum: ['USD']
   },
   
   // Payout Method

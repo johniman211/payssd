@@ -137,7 +137,7 @@ const BlogPage = () => {
       </div>
 
       {/* Featured Post */}
-      {featuredPost && (
+                    {featuredPost && (
         <div className="py-12 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl overflow-hidden">
@@ -164,7 +164,7 @@ const BlogPage = () => {
                     </span>
                     <span className="flex items-center">
                       <CalendarIcon className="h-4 w-4 mr-1" />
-                      {new Date(featuredPost.publishedAt || featuredPost.date || featuredPost.createdAt).toLocaleDateString()}
+                      {new Date(featuredPost.publishedAt || featuredPost.createdAt || featuredPost.date).toLocaleDateString()}
                     </span>
                     <span className="flex items-center">
                       <ClockIcon className="h-4 w-4 mr-1" />
@@ -222,7 +222,7 @@ const BlogPage = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredPosts.filter(post => !post.featured).map((post) => (
-              <article key={post.id} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+              <article key={post._id || post.id} className="bg白 rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
                 <div className="relative h-48">
                   <img
                     src={post.image}
@@ -249,7 +249,7 @@ const BlogPage = () => {
                     </span>
                     <span className="flex items-center">
                       <CalendarIcon className="h-4 w-4 mr-1" />
-                      {new Date(post.publishedAt || post.date || post.createdAt).toLocaleDateString()}
+                      {new Date(post.publishedAt || post.createdAt || post.date).toLocaleDateString()}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -312,7 +312,7 @@ const BlogPage = () => {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {blogPosts.slice(0, 3).map((post) => (
-              <div key={post.id} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
+              <div key={post._id || post.id} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
                 <img
                   src={post.image}
                   alt={post.title}
@@ -323,7 +323,7 @@ const BlogPage = () => {
                     {post.title}
                   </h3>
                   <p className="text-xs text-gray-500">
-                    {new Date(post.date).toLocaleDateString()}
+                    {new Date(post.publishedAt || post.createdAt || post.date).toLocaleDateString()}
                   </p>
                 </div>
               </div>

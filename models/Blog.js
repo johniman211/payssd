@@ -80,7 +80,7 @@ blogSchema.pre('save', function(next) {
       .replace(/[^a-z0-9 -]/g, '')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
-      .trim('-');
+      .replace(/^-+|-+$/g, '');
   }
   
   this.updatedAt = Date.now();

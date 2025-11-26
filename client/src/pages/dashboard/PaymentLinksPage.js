@@ -206,7 +206,6 @@ const PaymentLinksPage = () => {
                     onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
                     className="px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="SSP">SSP</option>
                     <option value="USD">USD</option>
                   </select>
                   <input

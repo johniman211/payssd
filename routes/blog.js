@@ -45,16 +45,16 @@ router.get('/public', async (req, res) => {
 // Get single blog by slug (public)
 router.get('/public/:slug', async (req, res) => {
   try {
-    const blog = await Blog.findOne({ slug: req.params.slug, published: true });
-    
+    const blog = await Blog.findOneAndUpdate(
+      { slug: req.params.slug, published: true },
+      { $inc: { views: 1 } },
+      { new: true, runValidators: false }
+    );
+
     if (!blog) {
       return res.status(404).json({ success: false, message: 'Blog post not found' });
     }
-    
-    // Increment view count
-    blog.views += 1;
-    await blog.save();
-    
+
     res.json({ success: true, blog });
   } catch (error) {
     console.error('Error fetching blog:', error);
@@ -161,12 +161,12 @@ router.post('/', async (req, res) => {
     }
     
     // Check if slug already exists
-    const slug = title
-      .toLowerCase()
-      .replace(/[^a-z0-9 -]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .trim('-');
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9 -]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
     
     const existingBlog = await Blog.findOne({ slug });
     if (existingBlog) {
@@ -231,7 +231,7 @@ router.put('/:id', async (req, res) => {
         .replace(/[^a-z0-9 -]/g, '')
         .replace(/\s+/g, '-')
         .replace(/-+/g, '-')
-        .trim('-');
+        .replace(/^-+|-+$/g, '');
       
       const existingBlog = await Blog.findOne({ slug: newSlug, _id: { $ne: req.params.id } });
       if (existingBlog) {

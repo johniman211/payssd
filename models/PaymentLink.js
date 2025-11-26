@@ -57,7 +57,7 @@ const paymentLinkSchema = new mongoose.Schema({
   currency: {
     type: String,
     default: 'USD',
-    enum: ['SSP', 'USD']
+    enum: ['USD']
   },
   
   // Link Configuration

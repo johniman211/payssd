@@ -46,11 +46,11 @@ const BlogPost = () => {
     if (!post) return;
     
     try {
-      await axios.post(`/api/blog/${post._id}/like`);
-      setLiked(!liked);
+      const resp = await axios.post(`/api/blog/${post._id}/like`);
+      setLiked(true);
       setPost(prev => ({
         ...prev,
-        likes: liked ? prev.likes - 1 : prev.likes + 1
+        likes: typeof resp.data?.likes === 'number' ? resp.data.likes : (prev.likes || 0) + 1
       }));
     } catch (error) {
       console.error('Error liking post:', error);

@@ -24,7 +24,7 @@ router.get('/', [merchantApiAuth,
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
   query('status').optional().isIn(['pending', 'successful', 'failed', 'expired']).withMessage('Invalid status'),
   query('paymentMethod').optional().isIn(['mtn_momo', 'digicash']).withMessage('Invalid payment method'),
-  query('currency').optional().isIn(['SSP', 'USD']).withMessage('Invalid currency'),
+  query('currency').optional().isIn(['USD']).withMessage('Invalid currency'),
   query('startDate').optional().isISO8601().withMessage('Start date must be a valid ISO 8601 date'),
   query('endDate').optional().isISO8601().withMessage('End date must be a valid ISO 8601 date'),
   query('minAmount').optional().isFloat({ min: 0 }).withMessage('Minimum amount must be a positive number'),
@@ -350,7 +350,7 @@ router.get('/analytics/overview', [merchantApiAuth], async (req, res) => {
 // Get transaction trends (daily data for charts)
 router.get('/analytics/trends', [merchantApiAuth,
   query('period').optional().isIn(['7d', '30d', '90d', '1y']).withMessage('Period must be one of: 7d, 30d, 90d, 1y'),
-  query('currency').optional().isIn(['SSP', 'USD']).withMessage('Invalid currency')
+  query('currency').optional().isIn(['USD']).withMessage('Invalid currency')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);

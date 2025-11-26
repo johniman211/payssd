@@ -119,7 +119,7 @@ router.get('/recent-activity', [auth, adminAuth], async (req, res) => {
     recentTransactions.forEach(transaction => {
       activities.push({
         type: 'transaction',
-        message: `Transaction ${transaction.status}: SSP ${transaction.amount}`,
+        message: `Transaction ${transaction.status}: USD ${transaction.amount}`,
         timestamp: transaction.createdAt,
         user: transaction.merchant?.email
       });

@@ -118,7 +118,7 @@ const userSchema = new mongoose.Schema({
     },
     currency: {
       type: String,
-      default: 'SSP' // South Sudanese Pound
+      default: 'USD'
     }
   },
   
@@ -206,7 +206,7 @@ const userSchema = new mongoose.Schema({
       },
       currency: {
         type: String,
-        default: 'SSP'
+        default: 'USD'
       },
       theme: {
         type: String,
@@ -219,7 +219,7 @@ const userSchema = new mongoose.Schema({
       },
       numberFormat: {
         type: String,
-        default: 'en-SS'
+        default: 'en-US'
       }
     },
     security: {

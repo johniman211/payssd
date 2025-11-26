@@ -60,7 +60,7 @@ async function createSampleData() {
         balance: {
           available: Math.floor(Math.random() * 10000),
           pending: Math.floor(Math.random() * 1000),
-          currency: 'SSP'
+          currency: 'USD'
         }
       });
       
@@ -90,7 +90,7 @@ async function createSampleData() {
           title: `Payment Link ${j} for ${merchant.profile.businessName}`,
           description: `Sample payment link ${j}`,
           amount: Math.floor(Math.random() * 1000) + 100,
-          currency: 'SSP',
+          currency: 'USD',
           isActive: Math.random() > 0.3,
           isMultiUse: j === 1,
           maxUses: j === 1 ? 10 : 1,
@@ -120,7 +120,7 @@ async function createSampleData() {
         merchant: merchant._id,
         paymentLink: paymentLink ? paymentLink._id : null,
         amount: Math.floor(Math.random() * 1000) + 50,
-        currency: 'SSP',
+        currency: 'USD',
         status: statuses[Math.floor(Math.random() * statuses.length)],
         paymentMethod: paymentMethods[Math.floor(Math.random() * paymentMethods.length)],
         customer: {

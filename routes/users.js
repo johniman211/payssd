@@ -687,7 +687,7 @@ router.delete('/account', [
       });
     }
 
-    if (user.balance.SSP > 0 || user.balance.USD > 0) {
+    if ((user.balance?.available || 0) > 0 || (user.balance?.pending || 0) > 0) {
       return res.status(400).json({
         success: false,
         message: 'Cannot delete account with remaining balance. Please request a payout first.'

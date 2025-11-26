@@ -55,12 +55,12 @@ const DashboardPage = () => {
     }
   };
 
-  const formatCurrency = (amount, currency = 'SSP') => {
+  const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency === 'SSP' ? 'USD' : currency,
+      currency: 'USD',
       minimumFractionDigits: 2
-    }).format(amount).replace('$', currency === 'SSP' ? 'SSP ' : '$');
+    }).format(amount);
   };
 
   const formatDate = (dateString) => {
@@ -323,7 +323,7 @@ const DashboardPage = () => {
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">
-                          {formatCurrency(transaction.amount, transaction.currency)}
+                          {formatCurrency(transaction.amount)}
                         </div>
                         <div className="text-sm text-gray-500">
                           {transaction.paymentMethod?.replace('_', ' ').toUpperCase()} • {formatDate(transaction.createdAt)}

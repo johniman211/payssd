@@ -183,7 +183,7 @@ const TransactionManagement = () => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-SS', {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -193,10 +193,10 @@ const TransactionManagement = () => {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-SS', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'SSP',
-      minimumFractionDigits: 0
+      currency: 'USD',
+      minimumFractionDigits: 2
     }).format(amount);
   };
 
