@@ -131,7 +131,7 @@ const PaymentPage = () => {
         return;
       }
       const publicKey = process.env.REACT_APP_FLUTTERWAVE_PUBLIC_KEY || window.FLW_PUBLIC_KEY || '';
-      const useInline = gatewayAvailable() && !!publicKey;
+      const useInline = false;
 
       const { tx_ref, amount, currency } = prep.data;
 
