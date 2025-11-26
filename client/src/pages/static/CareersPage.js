@@ -464,8 +464,8 @@ const CareersPage = () => {
                       <div className="flex items-center gap-1">
                         <CurrencyDollarIcon className="h-4 w-4" />
                         <span>
-                          ${job.salaryRange.min.toLocaleString()}
-                          {job.salaryRange.max && ` - $${job.salaryRange.max.toLocaleString()}`}
+                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(job.salaryRange.min)}
+                    {job.salaryRange.max && ` - ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(job.salaryRange.max)}`}
                         </span>
                       </div>
                     )}

@@ -75,8 +75,12 @@ const CreatePaymentLinkPage = () => {
     }
   };
 
-  const formatCurrency = () => {
-    return 'USD';
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2
+    }).format(amount);
   };
 
   return (
@@ -209,7 +213,7 @@ const CreatePaymentLinkPage = () => {
             {!formData.allowCustomAmount ? (
               <div>
                 <label htmlFor="amount" className="block text-sm font-medium text-gray-700">
-                  Fixed Amount * ({formatCurrency(formData.currency)})
+                  Fixed Amount * (USD)
                 </label>
                 <div className="mt-1 relative rounded-md shadow-sm">
                   <input
@@ -225,7 +229,7 @@ const CreatePaymentLinkPage = () => {
                     placeholder="0.00"
                   />
                   <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <span className="text-gray-500 sm:text-sm">{formatCurrency(formData.currency)}</span>
+                    <span className="text-gray-500 sm:text-sm">USD</span>
                   </div>
                 </div>
               </div>
@@ -233,7 +237,7 @@ const CreatePaymentLinkPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="minAmount" className="block text-sm font-medium text-gray-700">
-                    Minimum Amount ({formatCurrency(formData.currency)})
+                    Minimum Amount (USD)
                   </label>
                   <div className="mt-1 relative rounded-md shadow-sm">
                     <input
@@ -248,13 +252,13 @@ const CreatePaymentLinkPage = () => {
                       placeholder="0.00"
                     />
                     <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                      <span className="text-gray-500 sm:text-sm">{formatCurrency(formData.currency)}</span>
+                      <span className="text-gray-500 sm:text-sm">USD</span>
                     </div>
                   </div>
                 </div>
                 <div>
-                  <label htmlFor="maxAmount" className="block text-sm font-medium text-gray-700">
-                    Maximum Amount ({formatCurrency(formData.currency)})
+                  <label htmlFor="maxAmount" className="block text sm font-medium text-gray-700">
+                    Maximum Amount (USD)
                   </label>
                   <div className="mt-1 relative rounded-md shadow-sm">
                     <input
@@ -269,7 +273,7 @@ const CreatePaymentLinkPage = () => {
                       placeholder="0.00"
                     />
                     <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                      <span className="text-gray-500 sm:text-sm">{formatCurrency(formData.currency)}</span>
+                      <span className="text-gray-500 sm:text-sm">USD</span>
                     </div>
                   </div>
                 </div>

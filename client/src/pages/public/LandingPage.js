@@ -284,7 +284,7 @@ const LandingPage = () => {
                         className="flex justify-between items-center p-4 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl border border-green-200 dark:border-green-700"
                       >
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Today's Revenue</span>
-                        <span className="font-bold text-green-600 dark:text-green-400">SSP 45,230</span>
+                        <span className="font-bold text-green-600 dark:text-green-400">$45,230</span>
                       </motion.div>
                       <motion.div 
                         whileHover={{ scale: 1.02 }}
