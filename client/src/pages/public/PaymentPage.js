@@ -22,6 +22,7 @@ const PaymentPage = () => {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
+  const [flwReady, setFlwReady] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     phoneNumber: '+211',
@@ -37,14 +38,46 @@ const PaymentPage = () => {
 
   useEffect(() => {
     fetchPaymentLink();
-    // Load Flutterwave script for popup checkout
-    if (typeof window !== 'undefined' && !window.FlutterwaveCheckout) {
-      const script = document.createElement('script');
-      script.src = 'https://checkout.flutterwave.com/v3.js';
-      script.async = true;
-      document.body.appendChild(script);
+    if (typeof window !== 'undefined') {
+      const existing = document.querySelector('script[src="https://checkout.flutterwave.com/v3.js"]');
+      if (window.FlutterwaveCheckout) {
+        setFlwReady(true);
+      } else if (!existing) {
+        const script = document.createElement('script');
+        script.src = 'https://checkout.flutterwave.com/v3.js';
+        script.async = true;
+        script.onload = () => setFlwReady(true);
+        document.body.appendChild(script);
+      } else {
+        existing.addEventListener('load', () => setFlwReady(true));
+        setTimeout(() => {
+          if (window.FlutterwaveCheckout) setFlwReady(true);
+        }, 1000);
+      }
     }
   }, [linkId]);
+
+  const loadFlutterwaveScript = async () => {
+    if (typeof window === 'undefined') return false;
+    if (window.FlutterwaveCheckout) return true;
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[src="https://checkout.flutterwave.com/v3.js"]');
+      const handler = () => resolve(true);
+      if (existing) {
+        existing.addEventListener('load', handler, { once: true });
+      } else {
+        const script = document.createElement('script');
+        script.src = 'https://checkout.flutterwave.com/v3.js';
+        script.async = true;
+        script.onload = handler;
+        script.onerror = () => reject(new Error('Script load failed'));
+        document.body.appendChild(script);
+      }
+      setTimeout(() => {
+        if (window.FlutterwaveCheckout) resolve(true);
+      }, 1500);
+    });
+  };
 
   const fetchPaymentLink = async () => {
     try {
@@ -129,10 +162,10 @@ const PaymentPage = () => {
         setProcessing(false);
         return;
       }
-
-      const publicKey = process.env.REACT_APP_FLUTTERWAVE_PUBLIC_KEY;
-      if (!publicKey || typeof window === 'undefined' || !window.FlutterwaveCheckout) {
-        toast.error('Payment gateway unavailable. Please try again later.');
+      await loadFlutterwaveScript();
+      const publicKey = process.env.REACT_APP_FLUTTERWAVE_PUBLIC_KEY || window.FLW_PUBLIC_KEY || '';
+      if (!publicKey) {
+        toast.error('Payment gateway not configured. Set REACT_APP_FLUTTERWAVE_PUBLIC_KEY.');
         setProcessing(false);
         return;
       }
