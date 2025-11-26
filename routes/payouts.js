@@ -25,7 +25,7 @@ router.get('/', [
     .withMessage('Invalid status'),
   query('currency')
     .optional()
-    .isIn(['SSP', 'USD'])
+    .isIn(['USD'])
     .withMessage('Invalid currency'),
   query('method')
     .optional()
@@ -65,7 +65,7 @@ router.get('/', [
 
     if (status) filter.status = status;
     if (currency) filter.currency = currency;
-    if (method) filter.method = method;
+    if (method) filter.payoutMethod = method;
 
     // Date range filter
     if (startDate || endDate) {
@@ -118,7 +118,7 @@ router.get('/:payoutId', [auth, requireEmailVerification, merchantAuth], async (
     const { payoutId } = req.params;
 
     const payout = await Payout.findOne({
-      _id: payoutId,
+      payoutId,
       merchant: req.user.id
     }).lean();
 
@@ -145,11 +145,11 @@ router.post('/request', [
   auth,
   merchantAuth,
   body('amount')
-    .isFloat({ min: 100 })
-    .withMessage('Amount must be at least 100'),
+    .isFloat({ min: 10 })
+    .withMessage('Amount must be at least 10'),
   body('currency')
-    .isIn(['SSP', 'USD'])
-    .withMessage('Currency must be either SSP or USD'),
+    .isIn(['USD'])
+    .withMessage('Currency must be USD'),
   body('method')
     .isIn(['bank_transfer', 'mobile_money', 'cash_pickup'])
     .withMessage('Method must be bank_transfer, mobile_money, or cash_pickup'),
@@ -165,11 +165,11 @@ router.post('/request', [
     .if(body('method').equals('bank_transfer'))
     .notEmpty()
     .withMessage('Account name is required for bank transfers'),
-  body('destination.phoneNumber')
+  body('destination.mobileNumber')
     .if(body('method').equals('mobile_money'))
     .matches(/^\+211[0-9]{8}$/)
     .withMessage('Valid South Sudan phone number is required for mobile money'),
-  body('destination.provider')
+  body('destination.mobileProvider')
     .if(body('method').equals('mobile_money'))
     .isIn(['mtn', 'digicash'])
     .withMessage('Mobile money provider must be mtn or digicash'),
@@ -201,13 +201,7 @@ router.post('/request', [
       });
     }
 
-    const {
-      amount,
-      currency,
-      method,
-      destination,
-      notes
-    } = req.body;
+    const { amount, currency, method, destination, notes } = req.body;
 
     // Get merchant details
     const merchant = await User.findById(req.user.id);
@@ -219,7 +213,7 @@ router.post('/request', [
     }
 
     // Check if merchant has sufficient balance
-    const availableBalance = merchant.balance[currency] || 0;
+    const availableBalance = merchant.balance?.available || 0;
     if (availableBalance < amount) {
       return res.status(400).json({
         success: false,
@@ -241,7 +235,7 @@ router.post('/request', [
     }
 
     // Calculate processing fee
-    const processingFee = Payout.calculateProcessingFee(method, amount, currency);
+    const processingFee = Payout.calculateProcessingFee(amount, method);
     const netAmount = amount - processingFee;
 
     if (netAmount <= 0) {
@@ -252,11 +246,10 @@ router.post('/request', [
     }
 
     // Validate merchant balance against the payout
-    const isValidBalance = await Payout.validateMerchantBalance(req.user.id, amount, currency);
-    if (!isValidBalance) {
+    if (availableBalance < amount + processingFee) {
       return res.status(400).json({
         success: false,
-        message: 'Insufficient balance for this payout request'
+        message: 'Insufficient balance for this payout request including fees'
       });
     }
 
@@ -265,21 +258,18 @@ router.post('/request', [
       merchant: req.user.id,
       amount,
       currency,
-      method,
+      payoutMethod: method,
       destination,
       fees: {
-        processing: processingFee
+        processingFee: processingFee
       },
-      netAmount,
-      notes,
+      merchantNotes: notes,
       status: 'pending'
     });
 
     await payout.save();
 
-    // Deduct amount from merchant balance (hold it)
-    merchant.balance[currency] -= amount;
-    await merchant.save();
+    // Hold funds will occur on admin approval via process()
 
     res.status(201).json({
       success: true,
@@ -289,8 +279,7 @@ router.post('/request', [
         payoutId: payout.payoutId,
         amount: payout.amount,
         currency: payout.currency,
-        method: payout.method,
-        netAmount: payout.netAmount,
+        payoutMethod: payout.payoutMethod,
         fees: payout.fees,
         status: payout.status,
         createdAt: payout.createdAt
@@ -309,7 +298,7 @@ router.put('/:payoutId/cancel', [auth, requireEmailVerification, merchantAuth], 
     const { payoutId } = req.params;
 
     const payout = await Payout.findOne({
-      _id: payoutId,
+      payoutId,
       merchant: req.user.id
     });
 
@@ -327,13 +316,7 @@ router.put('/:payoutId/cancel', [auth, requireEmailVerification, merchantAuth], 
       });
     }
 
-    // Cancel the payout
     await payout.cancel('Cancelled by merchant');
-
-    // Refund the amount to merchant balance
-    const merchant = await User.findById(req.user.id);
-    merchant.balance[payout.currency] += payout.amount;
-    await merchant.save();
 
     res.json({
       success: true,
@@ -372,7 +355,7 @@ router.get('/stats/overview', [auth, requireEmailVerification, merchantAuth], as
           _id: null,
           count: { $sum: 1 },
           amount: { $sum: '$amount' },
-          fees: { $sum: '$fees.processing' }
+          fees: { $sum: '$fees.processingFee' }
         }
       }
     ]);
@@ -391,7 +374,7 @@ router.get('/stats/overview', [auth, requireEmailVerification, merchantAuth], as
           _id: null,
           count: { $sum: 1 },
           amount: { $sum: '$amount' },
-          fees: { $sum: '$fees.processing' }
+          fees: { $sum: '$fees.processingFee' }
         }
       }
     ]);
@@ -406,7 +389,7 @@ router.get('/stats/overview', [auth, requireEmailVerification, merchantAuth], as
       },
       {
         $group: {
-          _id: '$method',
+          _id: '$payoutMethod',
           count: { $sum: 1 },
           amount: { $sum: '$amount' }
         }
@@ -439,7 +422,7 @@ router.get('/stats/overview', [auth, requireEmailVerification, merchantAuth], as
     })
     .sort({ createdAt: -1 })
     .limit(5)
-    .select('payoutId amount currency method status createdAt completedAt')
+    .select('payoutId amount currency payoutMethod status createdAt completedAt')
     .lean();
 
     const stats = {
@@ -544,8 +527,8 @@ router.get('/methods', [auth, requireEmailVerification, merchantAuth], async (re
           }
         },
         requiredFields: [
-          'phoneNumber',
-          'provider'
+          'mobileNumber',
+          'mobileProvider'
         ],
         providers: [
           { id: 'mtn', name: 'MTN Mobile Money' },
@@ -604,8 +587,8 @@ router.post('/calculate-fees', [
     .isFloat({ min: 1 })
     .withMessage('Amount must be a positive number'),
   body('currency')
-    .isIn(['SSP', 'USD'])
-    .withMessage('Currency must be either SSP or USD'),
+    .isIn(['USD'])
+    .withMessage('Currency must be USD'),
   body('method')
     .isIn(['bank_transfer', 'mobile_money', 'cash_pickup'])
     .withMessage('Method must be bank_transfer, mobile_money, or cash_pickup')
@@ -623,7 +606,7 @@ router.post('/calculate-fees', [
     const { amount, currency, method } = req.body;
 
     // Calculate processing fee
-    const processingFee = Payout.calculateProcessingFee(method, amount, currency);
+    const processingFee = Payout.calculateProcessingFee(amount, method);
     const netAmount = amount - processingFee;
 
     res.json({

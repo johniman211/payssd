@@ -8,7 +8,7 @@ const PayoutsPage = () => {
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     status: '',
-    currency: '',
+    currency: 'USD',
     method: '',
     startDate: '',
     endDate: ''
@@ -29,6 +29,24 @@ const PayoutsPage = () => {
     pendingCount: 0,
     failedCount: 0
   });
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [requestForm, setRequestForm] = useState({
+    amount: '',
+    currency: 'USD',
+    method: 'bank_transfer',
+    destination: {
+      bankName: '',
+      accountNumber: '',
+      accountName: '',
+      mobileNumber: '',
+      mobileProvider: 'mtn',
+      pickupLocation: '',
+      recipientName: '',
+      recipientPhone: ''
+    },
+    notes: ''
+  });
+  const [feePreview, setFeePreview] = useState(null);
 
   useEffect(() => {
     fetchPayouts();
@@ -109,12 +127,12 @@ const PayoutsPage = () => {
     }
   };
 
-  const formatCurrency = (amount, currency) => {
+  const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency === 'SSP' ? 'USD' : currency,
+      currency: 'USD',
       minimumFractionDigits: 2
-    }).format(amount).replace('$', currency === 'SSP' ? 'SSP ' : '$');
+    }).format(amount);
   };
 
   const getStatusBadge = (status) => {
@@ -193,6 +211,12 @@ const PayoutsPage = () => {
               Filters
             </button>
             <button
+              onClick={() => setShowRequestModal(true)}
+              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2"
+            >
+              Withdraw
+            </button>
+            <button
               onClick={exportPayouts}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
             >
@@ -223,7 +247,7 @@ const PayoutsPage = () => {
             <DollarSign className="w-8 h-8 text-green-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Paid Out</p>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalAmount, 'SSP')}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalAmount)}</p>
             </div>
           </div>
         </div>
@@ -232,7 +256,7 @@ const PayoutsPage = () => {
             <Clock className="w-8 h-8 text-yellow-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Pending Amount</p>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.pendingAmount, 'SSP')}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.pendingAmount)}</p>
             </div>
           </div>
         </div>
@@ -292,8 +316,6 @@ const PayoutsPage = () => {
                 onChange={(e) => handleFilterChange('currency', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">All Currencies</option>
-                <option value="SSP">SSP</option>
                 <option value="USD">USD</option>
               </select>
             </div>
@@ -307,8 +329,8 @@ const PayoutsPage = () => {
               >
                 <option value="">All Methods</option>
                 <option value="bank_transfer">Bank Transfer</option>
-                <option value="mtn_momo">MTN Mobile Money</option>
-                <option value="digicash">Digicash</option>
+                <option value="mobile_money">Mobile Money</option>
+                <option value="cash_pickup">Cash Pickup</option>
               </select>
             </div>
             
@@ -376,7 +398,7 @@ const PayoutsPage = () => {
                         <div>
                           <span className="block">Destination:</span>
                           <span className="font-medium text-gray-900">
-                            {payout.destination?.accountNumber || payout.destination?.phoneNumber || 'N/A'}
+                            {payout.destination?.accountNumber || payout.destination?.mobileNumber || 'N/A'}
                           </span>
                         </div>
                         <div>
@@ -394,7 +416,7 @@ const PayoutsPage = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-bold text-gray-900">
-                      {formatCurrency(payout.amount, payout.currency)}
+                      {formatCurrency(payout.amount)}
                     </p>
                     <p className="text-sm text-gray-500">
                       {new Date(payout.createdAt).toLocaleTimeString()}
@@ -470,7 +492,7 @@ const PayoutsPage = () => {
                     <div className="flex justify-between">
                       <span className="text-gray-600">Amount:</span>
                       <span className="font-medium">
-                        {formatCurrency(selectedPayout.amount, selectedPayout.currency)}
+                        {formatCurrency(selectedPayout.amount)}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -510,10 +532,10 @@ const PayoutsPage = () => {
                         <span className="font-medium">{selectedPayout.destination.bankName}</span>
                       </div>
                     )}
-                    {selectedPayout.destination?.phoneNumber && (
+                    {selectedPayout.destination?.mobileNumber && (
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Phone Number:</span>
-                        <span className="font-medium">{selectedPayout.destination.phoneNumber}</span>
+                        <span className="text-gray-600">Mobile Number:</span>
+                        <span className="font-medium">{selectedPayout.destination.mobileNumber}</span>
                       </div>
                     )}
                     {selectedPayout.destination?.accountHolderName && (
@@ -531,6 +553,84 @@ const PayoutsPage = () => {
                   <p className="text-sm text-red-600">{selectedPayout.failureReason}</p>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Request Payout Modal */}
+      {showRequestModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-900">Request Payout</h3>
+              <button onClick={() => setShowRequestModal(false)} className="text-gray-400 hover:text-gray-600">×</button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                <input type="number" min="10" step="0.01" value={requestForm.amount} onChange={(e)=>setRequestForm({...requestForm, amount:e.target.value})} className="w-full px-3 py-2 border rounded-md" placeholder="Enter amount" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Method</label>
+                <select value={requestForm.method} onChange={(e)=>setRequestForm({...requestForm, method:e.target.value})} className="w-full px-3 py-2 border rounded-md">
+                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="mobile_money">Mobile Money</option>
+                  <option value="cash_pickup">Cash Pickup</option>
+                </select>
+              </div>
+              {requestForm.method === 'bank_transfer' && (
+                <div className="space-y-2">
+                  <input className="w-full px-3 py-2 border rounded-md" placeholder="Bank Name" value={requestForm.destination.bankName} onChange={(e)=>setRequestForm({...requestForm, destination:{...requestForm.destination, bankName:e.target.value}})} />
+                  <input className="w-full px-3 py-2 border rounded-md" placeholder="Account Number" value={requestForm.destination.accountNumber} onChange={(e)=>setRequestForm({...requestForm, destination:{...requestForm.destination, accountNumber:e.target.value}})} />
+                  <input className="w-full px-3 py-2 border rounded-md" placeholder="Account Name" value={requestForm.destination.accountName} onChange={(e)=>setRequestForm({...requestForm, destination:{...requestForm.destination, accountName:e.target.value}})} />
+                </div>
+              )}
+              {requestForm.method === 'mobile_money' && (
+                <div className="space-y-2">
+                  <select className="w-full px-3 py-2 border rounded-md" value={requestForm.destination.mobileProvider} onChange={(e)=>setRequestForm({...requestForm, destination:{...requestForm.destination, mobileProvider:e.target.value}})}>
+                    <option value="mtn">MTN Mobile Money</option>
+                    <option value="digicash">Digicash</option>
+                  </select>
+                  <input className="w-full px-3 py-2 border rounded-md" placeholder="Mobile Number (+211XXXXXXXX)" value={requestForm.destination.mobileNumber} onChange={(e)=>setRequestForm({...requestForm, destination:{...requestForm.destination, mobileNumber:e.target.value}})} />
+                </div>
+              )}
+              {requestForm.method === 'cash_pickup' && (
+                <div className="space-y-2">
+                  <input className="w-full px-3 py-2 border rounded-md" placeholder="Pickup Location" value={requestForm.destination.pickupLocation} onChange={(e)=>setRequestForm({...requestForm, destination:{...requestForm.destination, pickupLocation:e.target.value}})} />
+                  <input className="w-full px-3 py-2 border rounded-md" placeholder="Recipient Name" value={requestForm.destination.recipientName} onChange={(e)=>setRequestForm({...requestForm, destination:{...requestForm.destination, recipientName:e.target.value}})} />
+                  <input className="w-full px-3 py-2 border rounded-md" placeholder="Recipient Phone (+211XXXXXXXX)" value={requestForm.destination.recipientPhone} onChange={(e)=>setRequestForm({...requestForm, destination:{...requestForm.destination, recipientPhone:e.target.value}})} />
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea className="w-full px-3 py-2 border rounded-md" rows="3" value={requestForm.notes} onChange={(e)=>setRequestForm({...requestForm, notes:e.target.value})} />
+              </div>
+              <div className="flex items-center justify-between">
+                <button onClick={async ()=>{
+                  try{
+                    const { data } = await axios.post('/api/payouts/calculate-fees', { amount: parseFloat(requestForm.amount||'0'), currency: 'USD', method: requestForm.method });
+                    setFeePreview(data.calculation);
+                  }catch(e){ setFeePreview(null); }
+                }} className="text-sm text-blue-600">Preview Fees</button>
+                {feePreview && (
+                  <div className="text-sm text-gray-700">
+                    Fee: {formatCurrency(feePreview.processingFee)} • Net: {formatCurrency(feePreview.netAmount)}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-2">
+              <button onClick={()=>setShowRequestModal(false)} className="px-4 py-2 rounded bg-gray-100 text-gray-700">Cancel</button>
+              <button onClick={async ()=>{
+                try{
+                  await axios.post('/api/payouts/request', { amount: parseFloat(requestForm.amount||'0'), currency: 'USD', method: requestForm.method, destination: requestForm.destination, notes: requestForm.notes });
+                  setShowRequestModal(false);
+                  setRequestForm({ amount:'', currency:'USD', method:'bank_transfer', destination:{ bankName:'', accountNumber:'', accountName:'', mobileNumber:'', mobileProvider:'mtn', pickupLocation:'', recipientName:'', recipientPhone:'' }, notes:'' });
+                  setFeePreview(null);
+                  fetchPayouts();
+                }catch(e){ setError(e.response?.data?.message || 'Failed to submit payout request'); }
+              }} className="px-4 py-2 rounded bg-purple-600 text-white">Submit</button>
             </div>
           </div>
         </div>
