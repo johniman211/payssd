@@ -38,50 +38,13 @@ const PaymentPage = () => {
 
   useEffect(() => {
     fetchPaymentLink();
-    if (typeof window !== 'undefined') {
-      const existing = document.querySelector('script[src="https://checkout.flutterwave.com/v3.js"]');
-      if (window.FlutterwaveCheckout) {
-        setFlwReady(true);
-      } else if (!existing) {
-        const script = document.createElement('script');
-        script.src = 'https://checkout.flutterwave.com/v3.js';
-        script.async = true;
-        script.onload = () => setFlwReady(true);
-        document.body.appendChild(script);
-      } else {
-        existing.addEventListener('load', () => setFlwReady(true));
-        setTimeout(() => {
-          if (window.FlutterwaveCheckout) setFlwReady(true);
-        }, 1000);
-      }
+    if (typeof window !== 'undefined' && window.FlutterwaveCheckout) {
+      setFlwReady(true);
     }
   }, [linkId]);
 
-  const loadFlutterwaveScript = async () => {
-    if (typeof window === 'undefined') return false;
-    if (window.FlutterwaveCheckout) return true;
-    return new Promise((resolve, reject) => {
-      const existing = document.querySelector('script[src="https://checkout.flutterwave.com/v3.js"]');
-      const handler = () => resolve(true);
-      if (existing) {
-        existing.addEventListener('load', handler, { once: true });
-      } else {
-        const script = document.createElement('script');
-        script.src = 'https://checkout.flutterwave.com/v3.js';
-        script.async = true;
-        script.onload = handler;
-        script.onerror = () => reject(new Error('Script load failed'));
-        document.body.appendChild(script);
-      }
-      // Fallback timeout: reject if script not loaded within 5s
-      setTimeout(() => {
-        if (window.FlutterwaveCheckout) {
-          resolve(true);
-        } else {
-          reject(new Error('Gateway script not loaded'));
-        }
-      }, 5000);
-    });
+  const gatewayAvailable = () => {
+    return typeof window !== 'undefined' && !!window.FlutterwaveCheckout;
   };
 
   const fetchPaymentLink = async () => {
@@ -167,58 +130,108 @@ const PaymentPage = () => {
         setProcessing(false);
         return;
       }
-      try {
-        await loadFlutterwaveScript();
-      } catch (e) {
-        toast.error('Unable to load payment gateway. Please check network and site security settings.');
-        setProcessing(false);
-        return;
-      }
       const publicKey = process.env.REACT_APP_FLUTTERWAVE_PUBLIC_KEY || window.FLW_PUBLIC_KEY || '';
-      if (!publicKey) {
-        toast.error('Payment gateway not configured. Set REACT_APP_FLUTTERWAVE_PUBLIC_KEY.');
-        setProcessing(false);
-        return;
-      }
+      const useInline = gatewayAvailable() && !!publicKey;
 
       const { tx_ref, amount, currency } = prep.data;
 
-      window.FlutterwaveCheckout({
-        public_key: publicKey,
-        tx_ref,
-        amount,
-        currency,
-        payment_options: 'card,mpesa,mobilemoney,banktransfer',
-        customer: {
-          email: formData.email || undefined,
-          phone_number: formData.phoneNumber,
-          name: formData.name,
-        },
-        meta: { linkId },
-        customizations: {
-          title: paymentLink.title,
-          description: paymentLink.description,
-          logo: paymentLink.customization?.logo || undefined,
-        },
-        callback: (data) => {
-          // relying on webhook for definitive status update
-          toast.success('Payment attempted');
-          const transaction = {
-            id: data.transaction_id,
-            status: data.status,
-            tx_ref: data.tx_ref,
-            amount: data.amount,
-            currency: data.currency,
-          };
-          localStorage.setItem('lastTransaction', JSON.stringify(transaction));
+      if (useInline) {
+        let settled = false;
+        const fallback = async () => {
+          if (settled) return;
+          settled = true;
+          try {
+            const init = await axios.post('/api/payments/flutterwave/initiate', {
+              linkId,
+              customer: {
+                name: formData.name,
+                phoneNumber: formData.phoneNumber,
+                email: formData.email || undefined,
+              },
+            });
+            if (init.data?.success && init.data.redirectLink) {
+              toast('Opening secure payment page...', { icon: '🔐' });
+              window.location.href = init.data.redirectLink;
+            } else {
+              toast.error(init.data?.message || 'Failed to initiate payment');
+              setProcessing(false);
+            }
+          } catch (err) {
+            toast.error(err.response?.data?.message || 'Payment could not start');
+            setProcessing(false);
+          }
+        };
+
+        try {
+          window.FlutterwaveCheckout({
+            public_key: publicKey,
+            tx_ref,
+            amount,
+            currency,
+            payment_options: 'card,mpesa,mobilemoney,banktransfer',
+            customer: {
+              email: formData.email || undefined,
+              phone_number: formData.phoneNumber,
+              name: formData.name,
+            },
+            meta: { linkId },
+            customizations: {
+              title: paymentLink.title,
+              description: paymentLink.description,
+              logo: paymentLink.customization?.logo || undefined,
+            },
+            callback: (data) => {
+              settled = true;
+              toast.success('Payment attempted');
+              const transaction = {
+                id: data.transaction_id,
+                status: data.status,
+                tx_ref: data.tx_ref,
+                amount: data.amount,
+                currency: data.currency,
+              };
+              localStorage.setItem('lastTransaction', JSON.stringify(transaction));
+              setProcessing(false);
+              navigate('/payment/success', { state: { transaction, paymentLink } });
+            },
+            onclose: () => {
+              if (!settled) {
+                settled = true;
+                setProcessing(false);
+                toast('Payment window closed', { icon: '👋' });
+              }
+            },
+          });
+          setTimeout(() => {
+            if (!settled) {
+              fallback();
+            }
+          }, 3000);
+        } catch (e) {
+          await fallback();
+        }
+      } else {
+        try {
+          const init = await axios.post('/api/payments/flutterwave/initiate', {
+            linkId,
+            customer: {
+              name: formData.name,
+              phoneNumber: formData.phoneNumber,
+              email: formData.email || undefined,
+            },
+          });
+          if (init.data?.success && init.data.redirectLink) {
+            toast('Opening secure payment page...', { icon: '🔐' });
+            window.location.href = init.data.redirectLink;
+          } else {
+            toast.error(init.data?.message || 'Failed to initiate payment');
+            setProcessing(false);
+          }
+        } catch (err) {
+          toast.error(err.response?.data?.message || 'Payment could not start');
           setProcessing(false);
-          navigate('/payment/success', { state: { transaction, paymentLink } });
-        },
-        onclose: () => {
-          setProcessing(false);
-          toast('Payment window closed', { icon: '👋' });
-        },
-      });
+        }
+      }
     } catch (err) {
       console.error('Initiate payment error:', err);
       toast.error(err.response?.data?.message || 'Payment failed to start');
