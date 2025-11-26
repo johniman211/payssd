@@ -197,8 +197,7 @@ const LandingPage = () => {
                 </h1>
                 
                 <p className="text-xl lg:text-2xl text-gray-600 dark:text-gray-300 leading-relaxed max-w-2xl">
-                  The most trusted payment gateway for businesses in Juba, Wau, Malakal, and across South Sudan. 
-                  Accept MTN Mobile Money and Digicash payments with ease.
+                  PaySSD is South Sudan’s first online payment gateway—enabling businesses to accept payments digitally for the first time.
                 </p>
               </motion.div>
               

@@ -81,8 +81,7 @@ const Footer = () => {
                 <span className="ml-2 text-xl font-bold">PaySSD</span>
               </div>
               <p className="text-gray-300 mb-6 max-w-md">
-                Secure payment gateway platform built exclusively for South Sudan businesses. 
-                Accept MTN Mobile Money and Digicash payments with ease.
+                PaySSD is South Sudan’s first online payment gateway—enabling businesses to accept payments digitally for the first time.
               </p>
               
               {/* Contact info */}
