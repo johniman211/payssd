@@ -65,8 +65,10 @@ const SystemSettings = () => {
       autoApproveKyc: false
     },
     payments: {
-      mtnMomoEnabled: true,
-      digicashEnabled: true,
+      flutterwaveCardEnabled: true,
+      flutterwaveMobileMoneyEnabled: true,
+      flutterwaveMpesaEnabled: true,
+      flutterwaveBankTransferEnabled: true,
       minPaymentAmount: 100,
       maxPaymentAmount: 1000000,
       transactionFeePercentage: 2.5,
@@ -109,12 +111,10 @@ const SystemSettings = () => {
       monthlyReports: true
     },
     integrations: {
-      mtnMomoApiKey: '',
-      mtnMomoSecretKey: '',
-      mtnMomoSandboxMode: true,
-      digicashApiKey: '',
-      digicashSecretKey: '',
-      digicashSandboxMode: true,
+      flutterwavePublicKey: '',
+      flutterwaveSecretKey: '',
+      flutterwaveEncryptionKey: '',
+      flutterwaveSandboxMode: true,
       emailServiceProvider: 'sendgrid',
       emailApiKey: '',
       smsServiceProvider: 'twilio',
@@ -369,23 +369,45 @@ const SystemSettings = () => {
               <div className="card-body space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-medium text-gray-900">MTN Mobile Money</h3>
-                    <p className="text-sm text-gray-500">Enable MTN MoMo payments</p>
+                    <h3 className="text-sm font-medium text-gray-900">Card</h3>
+                    <p className="text-sm text-gray-500">Enable card payments via Flutterwave</p>
                   </div>
                   <ToggleSwitch
-                    enabled={settings.payments.mtnMomoEnabled}
-                    onChange={(value) => updateSetting('payments', 'mtnMomoEnabled', value)}
+                    enabled={settings.payments.flutterwaveCardEnabled}
+                    onChange={(value) => updateSetting('payments', 'flutterwaveCardEnabled', value)}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-medium text-gray-900">Digicash</h3>
-                    <p className="text-sm text-gray-500">Enable Digicash payments</p>
+                    <h3 className="text-sm font-medium text-gray-900">Mobile Money</h3>
+                    <p className="text-sm text-gray-500">Enable mobile money via Flutterwave</p>
                   </div>
                   <ToggleSwitch
-                    enabled={settings.payments.digicashEnabled}
-                    onChange={(value) => updateSetting('payments', 'digicashEnabled', value)}
+                    enabled={settings.payments.flutterwaveMobileMoneyEnabled}
+                    onChange={(value) => updateSetting('payments', 'flutterwaveMobileMoneyEnabled', value)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-900">M‑Pesa</h3>
+                    <p className="text-sm text-gray-500">Enable M‑Pesa via Flutterwave</p>
+                  </div>
+                  <ToggleSwitch
+                    enabled={settings.payments.flutterwaveMpesaEnabled}
+                    onChange={(value) => updateSetting('payments', 'flutterwaveMpesaEnabled', value)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-900">Bank Transfer</h3>
+                    <p className="text-sm text-gray-500">Enable bank transfers via Flutterwave</p>
+                  </div>
+                  <ToggleSwitch
+                    enabled={settings.payments.flutterwaveBankTransferEnabled}
+                    onChange={(value) => updateSetting('payments', 'flutterwaveBankTransferEnabled', value)}
                   />
                 </div>
               </div>
@@ -969,19 +991,19 @@ const SystemSettings = () => {
 
             <div className="card">
               <div className="card-header">
-                <h2 className="text-lg font-semibold text-gray-900">MTN Mobile Money</h2>
-                <p className="text-sm text-gray-500">Configure MTN MoMo API integration</p>
+                <h2 className="text-lg font-semibold text-gray-900">Flutterwave</h2>
+                <p className="text-sm text-gray-500">Configure Flutterwave API integration (Sandbox)</p>
               </div>
               <div className="card-body space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="form-label">API Key</label>
+                    <label className="form-label">Public Key</label>
                     <input
                       type="password"
-                      value={settings.integrations.mtnMomoApiKey}
-                      onChange={(e) => updateSetting('integrations', 'mtnMomoApiKey', e.target.value)}
+                      value={settings.integrations.flutterwavePublicKey}
+                      onChange={(e) => updateSetting('integrations', 'flutterwavePublicKey', e.target.value)}
                       className="form-input"
-                      placeholder="Enter MTN MoMo API Key"
+                      placeholder="Enter Flutterwave Public Key"
                     />
                   </div>
                   
@@ -989,56 +1011,24 @@ const SystemSettings = () => {
                     <label className="form-label">Secret Key</label>
                     <input
                       type="password"
-                      value={settings.integrations.mtnMomoSecretKey}
-                      onChange={(e) => updateSetting('integrations', 'mtnMomoSecretKey', e.target.value)}
+                      value={settings.integrations.flutterwaveSecretKey}
+                      onChange={(e) => updateSetting('integrations', 'flutterwaveSecretKey', e.target.value)}
                       className="form-input"
-                      placeholder="Enter MTN MoMo Secret Key"
+                      placeholder="Enter Flutterwave Secret Key"
                     />
                   </div>
                 </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900">Sandbox Mode</h3>
-                    <p className="text-sm text-gray-500">Use sandbox environment for testing</p>
-                  </div>
-                  <ToggleSwitch
-                    enabled={settings.integrations.mtnMomoSandboxMode}
-                    onChange={(value) => updateSetting('integrations', 'mtnMomoSandboxMode', value)}
+
+                <div>
+                  <label className="form-label">Encryption Key</label>
+                  <input
+                    type="password"
+                    value={settings.integrations.flutterwaveEncryptionKey}
+                    onChange={(e) => updateSetting('integrations', 'flutterwaveEncryptionKey', e.target.value)}
+                    className="form-input"
+                    placeholder="Enter Flutterwave Encryption Key"
                   />
                 </div>
-              </div>
-            </div>
-
-            <div className="card">
-              <div className="card-header">
-                <h2 className="text-lg font-semibold text-gray-900">Digicash</h2>
-                <p className="text-sm text-gray-500">Configure Digicash API integration</p>
-              </div>
-              <div className="card-body space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="form-label">API Key</label>
-                    <input
-                      type="password"
-                      value={settings.integrations.digicashApiKey}
-                      onChange={(e) => updateSetting('integrations', 'digicashApiKey', e.target.value)}
-                      className="form-input"
-                      placeholder="Enter Digicash API Key"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="form-label">Secret Key</label>
-                    <input
-                      type="password"
-                      value={settings.integrations.digicashSecretKey}
-                      onChange={(e) => updateSetting('integrations', 'digicashSecretKey', e.target.value)}
-                      className="form-input"
-                      placeholder="Enter Digicash Secret Key"
-                    />
-                  </div>
-                </div>
                 
                 <div className="flex items-center justify-between">
                   <div>
@@ -1046,8 +1036,8 @@ const SystemSettings = () => {
                     <p className="text-sm text-gray-500">Use sandbox environment for testing</p>
                   </div>
                   <ToggleSwitch
-                    enabled={settings.integrations.digicashSandboxMode}
-                    onChange={(value) => updateSetting('integrations', 'digicashSandboxMode', value)}
+                    enabled={settings.integrations.flutterwaveSandboxMode}
+                    onChange={(value) => updateSetting('integrations', 'flutterwaveSandboxMode', value)}
                   />
                 </div>
               </div>

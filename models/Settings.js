@@ -45,11 +45,20 @@ const settingsSchema = new mongoose.Schema({
   
   // Payment Settings
   payments: {
-    mtnMomoEnabled: {
+    // Flutterwave payment method toggles
+    flutterwaveCardEnabled: {
       type: Boolean,
       default: true
     },
-    digicashEnabled: {
+    flutterwaveMobileMoneyEnabled: {
+      type: Boolean,
+      default: true
+    },
+    flutterwaveMpesaEnabled: {
+      type: Boolean,
+      default: true
+    },
+    flutterwaveBankTransferEnabled: {
       type: Boolean,
       default: true
     },
@@ -243,27 +252,19 @@ const settingsSchema = new mongoose.Schema({
   
   // Integration Settings
   integrations: {
-    mtnMomoApiKey: {
+    flutterwavePublicKey: {
       type: String,
       default: ''
     },
-    mtnMomoSecretKey: {
+    flutterwaveSecretKey: {
       type: String,
       default: ''
     },
-    mtnMomoSandboxMode: {
-      type: Boolean,
-      default: true
-    },
-    digicashApiKey: {
+    flutterwaveEncryptionKey: {
       type: String,
       default: ''
     },
-    digicashSecretKey: {
-      type: String,
-      default: ''
-    },
-    digicashSandboxMode: {
+    flutterwaveSandboxMode: {
       type: Boolean,
       default: true
     },
