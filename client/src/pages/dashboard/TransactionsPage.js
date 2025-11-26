@@ -417,7 +417,26 @@ const TransactionsPage = () => {
                         <div>
                           <span className="block">Method:</span>
                           <span className="font-medium text-gray-900">
-                            {transaction.paymentMethod === 'mtn_momo' ? 'MTN MoMo' : 'Digicash'}
+                            {(() => {
+                              switch ((transaction.paymentMethod || '').toLowerCase()) {
+                                case 'mtn_momo':
+                                  return 'MTN Mobile Money';
+                                case 'digicash':
+                                  return 'Digicash';
+                                case 'flutterwave':
+                                  return 'Flutterwave';
+                                case 'card':
+                                  return 'Card';
+                                case 'mobilemoney':
+                                  return 'Mobile Money';
+                                case 'mpesa':
+                                  return 'M-Pesa';
+                                case 'banktransfer':
+                                  return 'Bank Transfer';
+                                default:
+                                  return '—';
+                              }
+                            })()}
                           </span>
                         </div>
                         <div>
@@ -513,7 +532,26 @@ const TransactionsPage = () => {
                     <div className="flex justify-between">
                       <span className="text-gray-600">Payment Method:</span>
                       <span className="font-medium">
-                        {selectedTransaction.paymentMethod === 'mtn_momo' ? 'MTN Mobile Money' : 'Digicash'}
+                        {(() => {
+                          switch ((selectedTransaction.paymentMethod || '').toLowerCase()) {
+                            case 'mtn_momo':
+                              return 'MTN Mobile Money';
+                            case 'digicash':
+                              return 'Digicash';
+                            case 'flutterwave':
+                              return 'Flutterwave';
+                            case 'card':
+                              return 'Card';
+                            case 'mobilemoney':
+                              return 'Mobile Money';
+                            case 'mpesa':
+                              return 'M-Pesa';
+                            case 'banktransfer':
+                              return 'Bank Transfer';
+                            default:
+                              return '—';
+                          }
+                        })()}
                       </span>
                     </div>
                     <div className="flex justify-between">

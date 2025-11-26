@@ -665,6 +665,15 @@ router.post('/webhook/flutterwave', async (req, res) => {
 
     const oldStatus = transaction.status;
     if (status === 'successful') {
+      const methodRaw = String((data?.payment_type || data?.channel || data?.source || '')).toLowerCase();
+      if (methodRaw) {
+        let method = 'flutterwave';
+        if (methodRaw.includes('card')) method = 'card';
+        else if (methodRaw.includes('mpesa')) method = 'mpesa';
+        else if (methodRaw.includes('bank')) method = 'banktransfer';
+        else if (methodRaw.includes('momo') || methodRaw.includes('mobile')) method = 'mobilemoney';
+        transaction.paymentMethod = method;
+      }
       transaction.status = 'successful';
       transaction.completedAt = new Date();
       const merchantReceives = transaction.amount - transaction.fees.totalFees;
