@@ -7,26 +7,51 @@ const PaymentSuccessPage = () => {
   const playSuccessSound = async () => {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     const ctx = new AudioCtx();
-    try {
-      await ctx.resume();
-    } catch {}
+    try { await ctx.resume(); } catch {}
     const now = ctx.currentTime;
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.connect(ctx.destination);
-    const tone = (freq, start, dur, vol, type = 'square') => {
-      const osc = ctx.createOscillator();
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, start);
-      osc.connect(gain);
-      gain.gain.exponentialRampToValueAtTime(vol, start + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
-      osc.start(start);
-      osc.stop(start + dur + 0.02);
+    const master = ctx.createGain();
+    master.gain.value = 0.8;
+    master.connect(ctx.destination);
+    const noise = ctx.createBufferSource();
+    const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.06, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) { data[i] = Math.random() * 2 - 1; }
+    noise.buffer = buffer;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 2000;
+    bp.Q.value = 8;
+    const ng = ctx.createGain();
+    ng.gain.value = 0.0001;
+    noise.connect(bp);
+    bp.connect(ng);
+    ng.connect(master);
+    noise.start(now);
+    ng.gain.exponentialRampToValueAtTime(0.5, now + 0.005);
+    ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
+    noise.stop(now + 0.06);
+    const makeTone = (freq, start, dur, vol) => {
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, start);
+      g.connect(master);
+      const o1 = ctx.createOscillator();
+      o1.type = 'triangle';
+      o1.frequency.setValueAtTime(freq, start);
+      o1.detune.setValueAtTime(5, start);
+      const o2 = ctx.createOscillator();
+      o2.type = 'square';
+      o2.frequency.setValueAtTime(freq * 2, start);
+      o1.connect(g);
+      o2.connect(g);
+      g.gain.exponentialRampToValueAtTime(vol, start + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+      o1.start(start);
+      o2.start(start);
+      o1.stop(start + dur + 0.02);
+      o2.stop(start + dur + 0.02);
     };
-    tone(800, now, 0.09, 0.3);
-    tone(1200, now + 0.11, 0.12, 0.35);
-    tone(600, now + 0.26, 0.08, 0.25, 'triangle');
+    makeTone(880, now + 0.02, 0.12, 0.4);
+    makeTone(1318.51, now + 0.17, 0.14, 0.45);
   };
 
   useEffect(() => {
