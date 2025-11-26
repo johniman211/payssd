@@ -11,7 +11,7 @@ const PaymentLinksPage = () => {
     title: '',
     description: '',
     amount: '',
-    currency: 'SSP',
+    currency: 'USD',
     expiresAt: '',
     isMultiUse: true,
     maxUses: '',
@@ -62,7 +62,7 @@ const PaymentLinksPage = () => {
         title: '',
         description: '',
         amount: '',
-        currency: 'SSP',
+        currency: 'USD',
         expiresAt: '',
         isMultiUse: true,
         maxUses: '',
@@ -94,12 +94,12 @@ const PaymentLinksPage = () => {
     }
   };
 
-  const formatCurrency = (amount, currency) => {
+  const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency === 'SSP' ? 'USD' : currency,
+      currency: 'USD',
       minimumFractionDigits: 2
-    }).format(amount).replace('$', currency === 'SSP' ? 'SSP ' : '$');
+    }).format(amount);
   };
 
   const getStatusBadge = (link) => {
@@ -369,7 +369,7 @@ const PaymentLinksPage = () => {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <span className="text-gray-500">Amount:</span>
-                        <p className="font-medium">{formatCurrency(link.amount, link.currency)}</p>
+                        <p className="font-medium">{formatCurrency(link.amount)}</p>
                       </div>
                       <div>
                         <span className="text-gray-500">Uses:</span>

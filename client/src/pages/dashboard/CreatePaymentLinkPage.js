@@ -75,8 +75,8 @@ const CreatePaymentLinkPage = () => {
     }
   };
 
-  const formatCurrency = (currency) => {
-    return currency === 'SSP' ? 'SSP' : currency;
+  const formatCurrency = () => {
+    return 'USD';
   };
 
   return (

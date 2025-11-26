@@ -37,10 +37,10 @@ const SettingsPage = () => {
     preferences: {
       language: 'en',
       timezone: 'Africa/Juba',
-      currency: 'SSP',
+      currency: 'USD',
       theme: 'system',
       dateFormat: 'DD/MM/YYYY',
-      numberFormat: 'en-SS'
+      numberFormat: 'en-US'
     },
     security: {
       twoFactorAuth: false,
@@ -462,7 +462,6 @@ const SettingsPage = () => {
                 onChange={(e) => updateSetting('preferences', 'currency', e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="SSP">South Sudanese Pound (SSP)</option>
                 <option value="USD">US Dollar (USD)</option>
               </select>
             </div>

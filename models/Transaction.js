@@ -31,7 +31,7 @@ const transactionSchema = new mongoose.Schema({
   },
   currency: {
     type: String,
-    default: 'SSP',
+    default: 'USD',
     enum: ['SSP', 'USD']
   },
   description: {
@@ -216,10 +216,10 @@ transactionSchema.methods.markAsExpired = function() {
 };
 
 // Method to calculate platform fee (2.5% + SSP 5)
-transactionSchema.statics.calculatePlatformFee = function(amount) {
-  const percentageFee = amount * 0.025; // 2.5%
-  const fixedFee = 5; // SSP 5
-  return Math.round((percentageFee + fixedFee) * 100) / 100; // Round to 2 decimal places
+  transactionSchema.statics.calculatePlatformFee = function(amount) {
+  const percentageFee = amount * 0.025;
+  const fixedFee = 5;
+  return Math.round((percentageFee + fixedFee) * 100) / 100;
 };
 
 // Method to get transaction summary for merchant

@@ -215,12 +215,12 @@ const PaymentPage = () => {
     }
   };
 
-  const formatCurrency = (amount, currency = 'SSP') => {
-    return new Intl.NumberFormat('en-SS', {
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency === 'SSP' ? 'USD' : currency,
-      minimumFractionDigits: 0
-    }).format(amount).replace('$', currency === 'SSP' ? 'SSP ' : '$');
+      currency: 'USD',
+      minimumFractionDigits: 2
+    }).format(amount);
   };
 
   const getPaymentMethodIcon = (method) => {
@@ -513,7 +513,7 @@ const PaymentPage = () => {
                     ) : (
                       <>
                         <LockClosedIcon className="h-5 w-5 mr-2" />
-                        Pay {formatCurrency(paymentLink.amount, paymentLink.currency)}
+                        Pay {formatCurrency(paymentLink.amount)}
                       </>
                     )}
                   </button>
@@ -578,7 +578,7 @@ const PaymentPage = () => {
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-semibold text-gray-900">Total Amount</span>
                     <span className="text-2xl font-bold text-gray-900">
-                      {formatCurrency(paymentLink.amount, paymentLink.currency)}
+                      {formatCurrency(paymentLink.amount)}
                     </span>
                   </div>
                 </div>

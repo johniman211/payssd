@@ -113,12 +113,12 @@ const TransactionsPage = () => {
     }
   };
 
-  const formatCurrency = (amount, currency) => {
+  const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency === 'SSP' ? 'USD' : currency,
+      currency: 'USD',
       minimumFractionDigits: 2
-    }).format(amount).replace('$', currency === 'SSP' ? 'SSP ' : '$');
+    }).format(amount);
   };
 
   const getStatusBadge = (status) => {
@@ -213,7 +213,7 @@ const TransactionsPage = () => {
             <DollarSign className="w-8 h-8 text-green-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalAmount, 'SSP')}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalAmount)}</p>
             </div>
           </div>
         </div>
@@ -432,7 +432,7 @@ const TransactionsPage = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-bold text-gray-900">
-                      {formatCurrency(transaction.amount, transaction.currency)}
+                      {formatCurrency(transaction.amount)}
                     </p>
                     <p className="text-sm text-gray-500">
                       {new Date(transaction.createdAt).toLocaleTimeString()}
@@ -508,7 +508,7 @@ const TransactionsPage = () => {
                     <div className="flex justify-between">
                       <span className="text-gray-600">Amount:</span>
                       <span className="font-medium">
-                        {formatCurrency(selectedTransaction.amount, selectedTransaction.currency)}
+                        {formatCurrency(selectedTransaction.amount)}
                       </span>
                     </div>
                     <div className="flex justify-between">
