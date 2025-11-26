@@ -463,6 +463,9 @@ router.post('/process', [
 // Flutterwave Standard Checkout: initiate payment and return redirect link
 router.post('/flutterwave/initiate', async (req, res) => {
   try {
+    if (!process.env.FLW_SECRET_KEY) {
+      return res.status(500).json({ success: false, message: 'Payment gateway not configured (FLW_SECRET_KEY missing)' });
+    }
     const { linkId, customer } = req.body;
     if (!linkId || !customer || !customer.name || !customer.phoneNumber) {
       return res.status(400).json({ success: false, message: 'Invalid request' });
@@ -479,9 +482,8 @@ router.post('/flutterwave/initiate', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Payment link is no longer available' });
     }
 
-    // Use USD as requested
     const amount = paymentLink.amount;
-    const currency = 'USD';
+    const currency = paymentLink.currency || 'USD';
 
     const tx_ref = 'flw_' + uuidv4().replace(/-/g, '').substring(0, 16);
 
@@ -550,14 +552,18 @@ router.post('/flutterwave/initiate', async (req, res) => {
 
     return res.json({ success: true, redirectLink: link, tx_ref });
   } catch (error) {
-    console.error('Flutterwave initiate error:', error.response?.data || error.message);
-    return res.status(500).json({ success: false, message: 'Failed to initiate payment' });
+    const providerMsg = error?.response?.data?.message || error?.response?.data?.status || error?.response?.data || error.message;
+    console.error('Flutterwave initiate error:', providerMsg);
+    return res.status(500).json({ success: false, message: providerMsg || 'Failed to initiate payment' });
   }
 });
 
 // Flutterwave prepare: create local transaction and return tx_ref for popup checkout
 router.post('/flutterwave/prepare', async (req, res) => {
   try {
+    if (!process.env.FLW_SECRET_KEY) {
+      return res.status(500).json({ success: false, message: 'Payment gateway not configured (FLW_SECRET_KEY missing)' });
+    }
     const { linkId, customer } = req.body;
     if (!linkId || !customer || !customer.name || !customer.phoneNumber) {
       return res.status(400).json({ success: false, message: 'Invalid request' });
@@ -575,7 +581,7 @@ router.post('/flutterwave/prepare', async (req, res) => {
     }
 
     const amount = paymentLink.amount;
-    const currency = 'USD';
+    const currency = paymentLink.currency || 'USD';
     const tx_ref = 'flw_' + uuidv4().replace(/-/g, '').substring(0, 16);
 
     const platformFee = Transaction.calculatePlatformFee(amount);
@@ -609,8 +615,9 @@ router.post('/flutterwave/prepare', async (req, res) => {
 
     return res.json({ success: true, tx_ref, amount, currency });
   } catch (error) {
-    console.error('Flutterwave prepare error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to prepare payment' });
+    const providerMsg = error?.response?.data?.message || error?.response?.data?.status || error?.response?.data || error.message;
+    console.error('Flutterwave prepare error:', providerMsg);
+    return res.status(500).json({ success: false, message: providerMsg || 'Failed to prepare payment' });
   }
 });
 
