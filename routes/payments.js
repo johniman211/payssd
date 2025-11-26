@@ -516,8 +516,13 @@ router.post('/flutterwave/initiate', async (req, res) => {
 
     await transaction.save();
 
-    const appUrl = process.env.APP_URL || 'http://localhost:5000';
-    const redirect_url = `${appUrl}/payment/success`;
+    const preferUrl = paymentLink.redirectUrls?.success;
+    const envFrontend = process.env.CLIENT_URL || process.env.APP_URL;
+    const proto = req.get('x-forwarded-proto') || req.protocol || 'https';
+    const host = req.get('host');
+    const derivedBase = host ? `${proto}://${host}` : 'http://localhost:5000';
+    const baseUrl = preferUrl ? undefined : (envFrontend || derivedBase);
+    const redirect_url = preferUrl || `${baseUrl}/payment/success`;
 
     const settings = await Settings.getSettings();
     const customizations = {
