@@ -28,4 +28,6 @@ supabase/.env
 .env
 client/.env
 supabase/.env
+*.env.*
+client/.env.*
 *.env
