@@ -14,6 +14,7 @@ import {
 } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { TokenStorage } from '../../utils/security';
+import { useAuth } from '../../contexts/AuthContext';
 
 const DashboardPage = () => {
   const [stats, setStats] = useState(null);
@@ -22,6 +23,7 @@ const DashboardPage = () => {
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { user, updateUser } = useAuth();
 
   useEffect(() => {
     fetchDashboardData();
@@ -42,6 +44,8 @@ const DashboardPage = () => {
       setTransactionAnalytics(analyticsRes.data?.analytics || null);
       setPayoutStats(payoutsRes.data?.stats || null);
       setRecentTransactions(transactionsRes.data?.transactions || []);
+      // Refresh user profile to get latest subscription status
+      await updateUser();
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -94,7 +98,25 @@ const DashboardPage = () => {
             <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
             <p className="text-gray-600 mt-1">Welcome to your merchant dashboard</p>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex items-center space-x-3">
+            {user?.subscription?.plan && (
+              <span
+                title={`Plan: ${user.subscription.plan} • Status: ${user.subscription.status || 'active'}`}
+                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${
+                  user.subscription.plan === 'pro'
+                    ? 'bg-purple-100 text-purple-700 border-purple-200'
+                    : user.subscription.plan === 'private'
+                    ? 'bg-red-100 text-red-700 border-red-200'
+                    : 'bg-gray-100 text-gray-700 border-gray-200'
+                }`}
+              >
+                {user.subscription.plan === 'private'
+                  ? 'Private Account'
+                  : user.subscription.plan === 'pro'
+                  ? 'Pro'
+                  : 'Starter'}
+              </span>
+            )}
             <button
               onClick={fetchDashboardData}
               className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

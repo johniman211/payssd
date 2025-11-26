@@ -18,7 +18,7 @@ import { toast } from 'react-hot-toast';
 import { TokenStorage } from '../../utils/security';
 
 const SettingsPage = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [activeTab, setActiveTab] = useState('notifications');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -115,6 +115,7 @@ const SettingsPage = () => {
   };
 
   const tabs = [
+    { id: 'subscription', name: 'Subscription', icon: CreditCardIcon },
     { id: 'notifications', name: 'Notifications', icon: BellIcon },
     { id: 'preferences', name: 'Preferences', icon: CogIcon },
     { id: 'security', name: 'Security', icon: ShieldCheckIcon },
@@ -145,6 +146,92 @@ const SettingsPage = () => {
         <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
         <p className="text-gray-600 mt-1">Manage your account settings and preferences</p>
       </div>
+
+      {/* Subscription Tab */}
+      {activeTab === 'subscription' && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-lg shadow p-6"
+        >
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-semibold text-gray-900">Subscription</h2>
+            <a
+              href="/pricing"
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              View Plans
+            </a>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Current Plan</span>
+                <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                  user?.subscription?.plan === 'pro'
+                    ? 'bg-purple-100 text-purple-700 border-purple-200'
+                    : user?.subscription?.plan === 'private'
+                    ? 'bg-red-100 text-red-700 border-red-200'
+                    : 'bg-gray-100 text-gray-700 border-gray-200'
+                }`}>
+                  {user?.subscription?.plan === 'private'
+                    ? 'Private Account'
+                    : user?.subscription?.plan === 'pro'
+                    ? 'Pro'
+                    : 'Starter'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Status</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {user?.subscription?.status || 'active'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Current Period End</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {user?.subscription?.currentPeriodEnd ? new Date(user.subscription.currentPeriodEnd).toLocaleDateString() : '—'}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-md font-medium text-gray-900 mb-2">Benefits</h3>
+              <ul className="space-y-1 text-sm text-gray-700">
+                {user?.subscription?.plan === 'pro' && (
+                  <>
+                    <li>• Faster payouts</li>
+                    <li>• Advanced analytics</li>
+                    <li>• Custom branding</li>
+                    <li>• Priority support</li>
+                    <li>• Team accounts</li>
+                  </>
+                )}
+                {user?.subscription?.plan === 'private' && (
+                  <>
+                    <li>• White-labeling</li>
+                    <li>• API access</li>
+                    <li>• Dedicated support</li>
+                    <li>• SLA</li>
+                    <li>• Custom payment flows</li>
+                  </>
+                )}
+                {(!user?.subscription?.plan || user?.subscription?.plan === 'starter') && (
+                  <>
+                    <li>• Basic dashboard</li>
+                    <li>• Standard payouts</li>
+                    <li>• Email/SMS notifications</li>
+                    <li>• Basic reporting</li>
+                  </>
+                )}
+              </ul>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Tabs */}
       <div className="border-b border-gray-200">

@@ -122,6 +122,33 @@ const userSchema = new mongoose.Schema({
     }
   },
   
+  // Subscription
+  subscription: {
+    plan: {
+      type: String,
+      enum: ['starter', 'pro', 'private'],
+      default: 'starter'
+    },
+    status: {
+      type: String,
+      enum: ['active', 'past_due', 'canceled', 'trialing'],
+      default: 'active'
+    },
+    startedAt: Date,
+    currentPeriodEnd: Date,
+    cancelAtPeriodEnd: {
+      type: Boolean,
+      default: false
+    },
+    provider: {
+      type: String,
+      enum: ['manual', 'flutterwave'],
+      default: 'manual'
+    },
+    externalRef: String,
+    notes: String
+  },
+  
   // API Keys for merchants
   apiKeys: {
     publicKey: String,
