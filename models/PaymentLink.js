@@ -88,7 +88,7 @@ const paymentLinkSchema = new mongoose.Schema({
   // Payment Methods
   allowedPaymentMethods: [{
     type: String,
-    enum: ['mtn_momo', 'digicash']
+    enum: ['flutterwave', 'card', 'mobilemoney', 'mpesa', 'bank_transfer']
   }],
   
   // Customization
@@ -247,8 +247,8 @@ paymentLinkSchema.virtual('conversionRate').get(function() {
   return (this.analytics.conversions / this.analytics.views) * 100;
 });
 
-// Pre-save middleware
-paymentLinkSchema.pre('save', function(next) {
+  // Pre-save middleware
+  paymentLinkSchema.pre('save', function(next) {
   // Check if link should be expired
   if (this.expiresAt && new Date() > this.expiresAt && this.status === 'active') {
     this.status = 'expired';
@@ -263,7 +263,7 @@ paymentLinkSchema.pre('save', function(next) {
   
   // Set default allowed payment methods if not specified
   if (!this.allowedPaymentMethods || this.allowedPaymentMethods.length === 0) {
-    this.allowedPaymentMethods = ['mtn_momo', 'digicash'];
+    this.allowedPaymentMethods = ['flutterwave'];
   }
   
   next();
