@@ -531,12 +531,25 @@ router.post('/flutterwave/initiate', async (req, res) => {
       logo: paymentLink.customization?.logo || undefined,
     };
 
+    // Build payment options based on admin toggles and link's allowed methods
+    const enabledMethods = [];
+    if (settings.payments?.flutterwaveCardEnabled) enabledMethods.push('card');
+    if (settings.payments?.flutterwaveMobileMoneyEnabled) enabledMethods.push('mobilemoney');
+    if (settings.payments?.flutterwaveMpesaEnabled) enabledMethods.push('mpesa');
+    if (settings.payments?.flutterwaveBankTransferEnabled) enabledMethods.push('banktransfer');
+
+    const allowed = Array.isArray(paymentLink.allowedPaymentMethods)
+      ? paymentLink.allowedPaymentMethods.map(m => (m === 'bank_transfer' ? 'banktransfer' : m))
+      : ['card'];
+    const payment_options = enabledMethods.filter(m => allowed.includes(m)).join(',') || 'card';
+
     const service = getFlutterwaveService();
     const initResp = await service.createPayment({
       tx_ref,
       amount,
       currency,
       redirect_url,
+      payment_options,
       customer: {
         email: customer.email,
         phone_number: customer.phoneNumber,
