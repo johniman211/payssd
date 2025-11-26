@@ -24,13 +24,14 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'", "https://checkout.flutterwave.com", "https://api.flutterwave.com"],
+      scriptSrc: ["'self'", "https://checkout.flutterwave.com", "https://api.flutterwave.com", "https://*.flutterwave.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://api.flutterwave.com"],
+      connectSrc: ["'self'", "https://api.flutterwave.com", "https://*.flutterwave.com"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
-      frameSrc: ["'self'", "https://checkout.flutterwave.com"]
+      frameSrc: ["'self'", "https://checkout.flutterwave.com", "https://*.flutterwave.com"],
+      childSrc: ["'self'", "https://checkout.flutterwave.com", "https://*.flutterwave.com"]
     }
   },
   crossOriginEmbedderPolicy: false
