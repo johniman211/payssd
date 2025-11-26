@@ -15,7 +15,7 @@ const PaymentLinksPage = () => {
     expiresAt: '',
     isMultiUse: true,
     maxUses: '',
-    allowedPaymentMethods: ['mtn_momo', 'digicash']
+    allowedPaymentMethods: ['flutterwave']
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -66,7 +66,7 @@ const PaymentLinksPage = () => {
         expiresAt: '',
         isMultiUse: true,
         maxUses: '',
-        allowedPaymentMethods: ['mtn_momo', 'digicash']
+        allowedPaymentMethods: ['flutterwave']
       });
       fetchPaymentLinks();
     } catch (error) {
@@ -282,39 +282,31 @@ const PaymentLinksPage = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Allowed Payment Methods
+                Allowed Payment Methods (Flutterwave)
               </label>
               <div className="space-y-2">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.allowedPaymentMethods.includes('mtn_momo')}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setFormData({ ...formData, allowedPaymentMethods: [...formData.allowedPaymentMethods, 'mtn_momo'] });
-                      } else {
-                        setFormData({ ...formData, allowedPaymentMethods: formData.allowedPaymentMethods.filter(m => m !== 'mtn_momo') });
-                      }
-                    }}
-                    className="mr-2"
-                  />
-                  <span className="text-sm text-gray-700">MTN Mobile Money</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.allowedPaymentMethods.includes('digicash')}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setFormData({ ...formData, allowedPaymentMethods: [...formData.allowedPaymentMethods, 'digicash'] });
-                      } else {
-                        setFormData({ ...formData, allowedPaymentMethods: formData.allowedPaymentMethods.filter(m => m !== 'digicash') });
-                      }
-                    }}
-                    className="mr-2"
-                  />
-                  <span className="text-sm text-gray-700">Digicash</span>
-                </label>
+                {[
+                  { key: 'card', label: 'Card' },
+                  { key: 'mobilemoney', label: 'Mobile Money' },
+                  { key: 'mpesa', label: 'M‑Pesa' },
+                  { key: 'bank_transfer', label: 'Bank Transfer' }
+                ].map((opt) => (
+                  <label key={opt.key} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={formData.allowedPaymentMethods.includes(opt.key)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFormData({ ...formData, allowedPaymentMethods: [...formData.allowedPaymentMethods, opt.key] });
+                        } else {
+                          setFormData({ ...formData, allowedPaymentMethods: formData.allowedPaymentMethods.filter(m => m !== opt.key) });
+                        }
+                      }}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700">{opt.label}</span>
+                  </label>
+                ))}
               </div>
             </div>
 

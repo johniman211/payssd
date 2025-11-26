@@ -21,7 +21,7 @@ const CreatePaymentLinkPage = () => {
     title: '',
     description: '',
     amount: '',
-    currency: 'SSP',
+    currency: 'USD',
     expiresAt: '',
     maxUses: '',
     allowCustomAmount: false,
@@ -156,7 +156,6 @@ const CreatePaymentLinkPage = () => {
                   onChange={handleInputChange}
                   className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 >
-                  <option value="SSP">South Sudanese Pound (SSP)</option>
                   <option value="USD">US Dollar (USD)</option>
                 </select>
               </div>

@@ -58,8 +58,8 @@ router.post('/create-link', auth, requireEmailVerification, merchantAuth, kycVer
     .withMessage('Maximum amount must be at least 0'),
   body('currency')
     .optional()
-    .isIn(['SSP', 'USD'])
-    .withMessage('Currency must be SSP or USD'),
+    .isIn(['USD'])
+    .withMessage('Currency must be USD'),
   body('expiresAt')
     .optional()
     .isISO8601()
@@ -69,7 +69,7 @@ router.post('/create-link', auth, requireEmailVerification, merchantAuth, kycVer
     .isArray()
     .withMessage('Allowed payment methods must be an array'),
   body('allowedPaymentMethods.*')
-    .isIn(['mtn_momo', 'digicash'])
+    .isIn(['flutterwave', 'card', 'mobilemoney', 'mpesa', 'bank_transfer'])
     .withMessage('Invalid payment method')
 ], async (req, res) => {
   try {
@@ -89,9 +89,9 @@ router.post('/create-link', auth, requireEmailVerification, merchantAuth, kycVer
       allowCustomAmount = false,
       minAmount,
       maxAmount,
-      currency = 'SSP',
+      currency = 'USD',
       expiresAt,
-      allowedPaymentMethods = ['mtn_momo', 'digicash'],
+      allowedPaymentMethods = ['flutterwave'],
       isMultiUse = true,
       maxUses,
       customization = {},
