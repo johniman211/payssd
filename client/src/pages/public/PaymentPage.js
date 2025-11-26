@@ -73,9 +73,14 @@ const PaymentPage = () => {
         script.onerror = () => reject(new Error('Script load failed'));
         document.body.appendChild(script);
       }
+      // Fallback timeout: reject if script not loaded within 5s
       setTimeout(() => {
-        if (window.FlutterwaveCheckout) resolve(true);
-      }, 1500);
+        if (window.FlutterwaveCheckout) {
+          resolve(true);
+        } else {
+          reject(new Error('Gateway script not loaded'));
+        }
+      }, 5000);
     });
   };
 
@@ -162,7 +167,13 @@ const PaymentPage = () => {
         setProcessing(false);
         return;
       }
-      await loadFlutterwaveScript();
+      try {
+        await loadFlutterwaveScript();
+      } catch (e) {
+        toast.error('Unable to load payment gateway. Please check network and site security settings.');
+        setProcessing(false);
+        return;
+      }
       const publicKey = process.env.REACT_APP_FLUTTERWAVE_PUBLIC_KEY || window.FLW_PUBLIC_KEY || '';
       if (!publicKey) {
         toast.error('Payment gateway not configured. Set REACT_APP_FLUTTERWAVE_PUBLIC_KEY.');
