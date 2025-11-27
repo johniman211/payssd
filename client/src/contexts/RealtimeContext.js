@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
+import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 import { useAuth } from './AuthContext';
 import { TokenStorage } from '../utils/security';
@@ -342,6 +343,43 @@ const RealtimeProviderInner = ({ children }) => {
     setIsConnected(false);
     setConnectionStatus('disconnected');
   };
+
+  // Supabase notifications subscription
+  useEffect(() => {
+    if (!user || !supabase) return;
+    const userId = user?._id || user?.id;
+    if (!userId) return;
+
+    const channel = supabase.channel('notifications')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${userId}`
+      }, (payload) => {
+        try {
+          const row = payload?.new || {};
+          const title = row.title || 'Notification';
+          const message = row.message || '';
+          toast.success(`${title}${message ? `: ${message}` : ''}`);
+        } catch (e) {
+          console.error('Supabase notification handler error:', e);
+        }
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Subscribed to Supabase notifications');
+        }
+      });
+
+    return () => {
+      try {
+        supabase.removeChannel(channel);
+      } catch (e) {
+        console.error('Supabase channel cleanup error:', e);
+      }
+    };
+  }, [user]);
 
   // Initialize when user logs in
   useEffect(() => {
