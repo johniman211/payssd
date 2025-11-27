@@ -1,9 +1,7 @@
 const express = require('express');
 const { query, body, param, validationResult } = require('express-validator');
-const User = require('../models/User');
-const Transaction = require('../models/Transaction');
-const PaymentLink = require('../models/PaymentLink');
-const Payout = require('../models/Payout');
+const { Users, Transactions, Payouts } = require('../services/supabaseRepo');
+const { supabase } = require('../services/supabaseClient');
 const { auth, adminAuth } = require('../middleware/auth');
 const { sendKYCApprovedEmail, sendKYCRejectedEmail, sendAdminNewUserEmail, sendAdminUserDeletedEmail } = require('../services/notificationService');
 const { getSettings, updateSettings } = require('../services/settingsStore');
@@ -18,33 +16,29 @@ router.get('/stats', [auth, adminAuth], async (req, res) => {
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
     // User statistics
-    const [totalUsers, activeUsers, newThisMonth, lastMonthUsers] = await Promise.all([
-      User.countDocuments({ role: 'merchant' }),
-      User.countDocuments({ role: 'merchant', isActive: true }),
-      User.countDocuments({ role: 'merchant', createdAt: { $gte: startOfMonth } }),
-      User.countDocuments({ role: 'merchant', createdAt: { $gte: lastMonth, $lt: startOfMonth } })
-    ]);
+    const { count: totalUsers } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role','merchant');
+    const { count: activeUsers } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role','merchant').eq('is_active', true);
+    const { count: newThisMonth } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role','merchant').gte('created_at', startOfMonth.toISOString());
+    const { count: lastMonthUsers } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role','merchant').gte('created_at', lastMonth.toISOString()).lt('created_at', startOfMonth.toISOString());
 
     // Transaction statistics
-    const [totalTransactions, successfulTransactions, failedTransactions, pendingTransactions] = await Promise.all([
-      Transaction.countDocuments(),
-      Transaction.countDocuments({ status: 'successful' }),
-      Transaction.countDocuments({ status: 'failed' }),
-      Transaction.countDocuments({ status: 'pending' })
-    ]);
+    const { count: totalTransactions } = await supabase.from('transactions').select('id', { count:'exact', head:true });
+    const { count: successfulTransactions } = await supabase.from('transactions').select('id', { count:'exact', head:true }).eq('status','successful');
+    const { count: failedTransactions } = await supabase.from('transactions').select('id', { count:'exact', head:true }).eq('status','failed');
+    const { count: pendingTransactions } = await supabase.from('transactions').select('id', { count:'exact', head:true }).eq('status','pending');
 
     // Revenue calculations
-    const [totalAmountResult, todayAmountResult, thisMonthResult, lastMonthResult] = await Promise.all([
-      Transaction.aggregate([{ $match: { status: 'successful' } }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
-      Transaction.aggregate([{ $match: { status: 'successful', createdAt: { $gte: new Date(now.getFullYear(), now.getMonth(), now.getDate()) } } }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
-      Transaction.aggregate([{ $match: { status: 'successful', createdAt: { $gte: startOfMonth } } }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
-      Transaction.aggregate([{ $match: { status: 'successful', createdAt: { $gte: lastMonth, $lt: startOfMonth } } }, { $group: { _id: null, total: { $sum: '$amount' } } }])
-    ]);
+    const { data: totalRows } = await supabase.from('transactions').select('amount').eq('status','successful');
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const { data: todayRows } = await supabase.from('transactions').select('amount').eq('status','successful').gte('created_at', todayStart.toISOString());
+    const { data: monthRows } = await supabase.from('transactions').select('amount').eq('status','successful').gte('created_at', startOfMonth.toISOString());
+    const { data: lastMonthRows } = await supabase.from('transactions').select('amount').eq('status','successful').gte('created_at', lastMonth.toISOString()).lt('created_at', startOfMonth.toISOString());
 
-    const totalAmount = totalAmountResult[0]?.total || 0;
-    const todayAmount = todayAmountResult[0]?.total || 0;
-    const thisMonth = thisMonthResult[0]?.total || 0;
-    const lastMonthAmount = lastMonthResult[0]?.total || 0;
+    const sum = (arr) => (arr||[]).reduce((s,r)=>s+(r.amount||0),0);
+    const totalAmount = sum(totalRows);
+    const todayAmount = sum(todayRows);
+    const thisMonth = sum(monthRows);
+    const lastMonthAmount = sum(lastMonthRows);
 
     // Calculate growth percentages
     const userGrowth = lastMonthUsers > 0 ? ((newThisMonth - lastMonthUsers) / lastMonthUsers * 100) : 0;
@@ -55,7 +49,7 @@ router.get('/stats', [auth, adminAuth], async (req, res) => {
       users: {
         total: totalUsers,
         active: activeUsers,
-        pendingKyc: await User.countDocuments({ role: 'merchant', 'kyc.status': 'pending' }),
+        pendingKyc: (await supabase.from('users').select('id',{count:'exact',head:true}).eq('role','merchant').eq('kyc->>status','pending')).count || 0,
         newThisMonth,
         growth: userGrowth
       },
@@ -75,10 +69,10 @@ router.get('/stats', [auth, adminAuth], async (req, res) => {
         growth: revenueGrowth
       },
       kyc: {
-        pending: await User.countDocuments({ role: 'merchant', 'kyc.status': 'pending' }),
-        approved: await User.countDocuments({ role: 'merchant', 'kyc.status': 'approved' }),
-        rejected: await User.countDocuments({ role: 'merchant', 'kyc.status': 'rejected' }),
-        total: await User.countDocuments({ role: 'merchant', 'kyc.status': { $exists: true, $ne: 'not_submitted' } })
+        pending: (await supabase.from('users').select('id',{count:'exact',head:true}).eq('role','merchant').eq('kyc->>status','pending')).count || 0,
+        approved: (await supabase.from('users').select('id',{count:'exact',head:true}).eq('role','merchant').eq('kyc->>status','approved')).count || 0,
+        rejected: (await supabase.from('users').select('id',{count:'exact',head:true}).eq('role','merchant').eq('kyc->>status','rejected')).count || 0,
+        total: (await supabase.from('users').select('id',{count:'exact',head:true}).eq('role','merchant').not('kyc->>status','is','null')).count || 0
       }
     };
 
@@ -95,10 +89,12 @@ router.get('/recent-activity', [auth, adminAuth], async (req, res) => {
     const activities = [];
     
     // Recent user registrations
-    const recentUsers = await User.find({ role: 'merchant' })
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .select('email profile.firstName profile.lastName createdAt');
+    const { data: recentUsers } = await supabase
+      .from('users')
+      .select('email,profile,created_at')
+      .eq('role','merchant')
+      .order('created_at',{ ascending:false })
+      .limit(5);
     
     recentUsers.forEach(user => {
       activities.push({
@@ -110,11 +106,18 @@ router.get('/recent-activity', [auth, adminAuth], async (req, res) => {
     });
 
     // Recent transactions
-    const recentTransactions = await Transaction.find()
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .populate('merchant', 'email profile.firstName profile.lastName')
-      .select('amount status createdAt merchant');
+    const { data: recentTransactions } = await supabase
+      .from('transactions')
+      .select('amount,status,created_at,user_id')
+      .order('created_at',{ ascending:false })
+      .limit(5);
+    const userEmails = {};
+    for (const t of recentTransactions||[]) {
+      if (t.user_id && !userEmails[t.user_id]) {
+        const { data: u } = await supabase.from('users').select('email').eq('id', t.user_id).limit(1).maybeSingle();
+        userEmails[t.user_id] = u?.email || '';
+      }
+    }
     
     recentTransactions.forEach(transaction => {
       activities.push({
@@ -178,114 +181,65 @@ router.get('/stats/overview', [auth, adminAuth], async (req, res) => {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     // User statistics
-    const [totalUsers, activeUsers, kycPendingUsers, kycApprovedUsers] = await Promise.all([
-      User.countDocuments({ role: 'merchant' }),
-      User.countDocuments({ role: 'merchant', isActive: true }),
-      User.countDocuments({ role: 'merchant', 'kyc.status': 'pending' }),
-      User.countDocuments({ role: 'merchant', 'kyc.status': 'approved' })
-    ]);
+    const { count: totalUsers2 } = await supabase.from('users').select('id',{count:'exact',head:true}).eq('role','merchant');
+    const { count: activeUsers2 } = await supabase.from('users').select('id',{count:'exact',head:true}).eq('role','merchant').eq('is_active', true);
+    const { count: kycPendingUsers } = await supabase.from('users').select('id',{count:'exact',head:true}).eq('role','merchant').eq('kyc->>status','pending');
+    const { count: kycApprovedUsers } = await supabase.from('users').select('id',{count:'exact',head:true}).eq('role','merchant').eq('kyc->>status','approved');
 
     // Transaction statistics
-    const [totalTransactions, todayTransactions, weeklyTransactions, monthlyTransactions] = await Promise.all([
-      Transaction.countDocuments(),
-      Transaction.countDocuments({ createdAt: { $gte: startOfDay } }),
-      Transaction.countDocuments({ createdAt: { $gte: startOfWeek } }),
-      Transaction.countDocuments({ createdAt: { $gte: startOfMonth } })
-    ]);
+    const { count: totalTransactions2 } = await supabase.from('transactions').select('id',{count:'exact',head:true});
+    const { count: todayTransactions } = await supabase.from('transactions').select('id',{count:'exact',head:true}).gte('created_at', startOfDay.toISOString());
+    const { count: weeklyTransactions } = await supabase.from('transactions').select('id',{count:'exact',head:true}).gte('created_at', startOfWeek.toISOString());
+    const { count: monthlyTransactions } = await supabase.from('transactions').select('id',{count:'exact',head:true}).gte('created_at', startOfMonth.toISOString());
 
     // Revenue statistics
-    const revenueStats = await Transaction.aggregate([
-      { $match: { status: 'successful' } },
-      {
-        $group: {
-          _id: null,
-          totalRevenue: { $sum: '$amount' },
-          totalFees: { $sum: '$fees.platform' },
-          avgTransaction: { $avg: '$amount' }
-        }
-      }
-    ]);
+    const { data: succRows } = await supabase.from('transactions').select('amount,fees').eq('status','successful');
+    const totalRevenue = (succRows||[]).reduce((s,t)=>s+(t.amount||0),0);
+    const totalFees = (succRows||[]).reduce((s,t)=>s+((t.fees?.total||t.fees?.totalFees||0)),0);
+    const avgTransaction = (succRows||[]).length ? totalRevenue / (succRows||[]).length : 0;
 
     // Today's revenue
-    const todayRevenue = await Transaction.aggregate([
-      {
-        $match: {
-          status: 'successful',
-          createdAt: { $gte: startOfDay }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          revenue: { $sum: '$amount' },
-          fees: { $sum: '$fees.platform' },
-          count: { $sum: 1 }
-        }
-      }
-    ]);
+    const { data: todaySucc } = await supabase.from('transactions').select('amount,fees').eq('status','successful').gte('created_at', startOfDay.toISOString());
+    const todayRevenueAmt = (todaySucc||[]).reduce((s,t)=>s+(t.amount||0),0);
+    const todayFeesAmt = (todaySucc||[]).reduce((s,t)=>s+((t.fees?.total||t.fees?.totalFees||0)),0);
+    const todayCount = (todaySucc||[]).length;
 
     // Payment method breakdown
-    const paymentMethodStats = await Transaction.aggregate([
-      { $match: { status: 'successful' } },
-      {
-        $group: {
-          _id: '$paymentMethod',
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' }
-        }
-      }
-    ]);
+    const { data: pmAll } = await supabase.from('transactions').select('payment_method,amount').eq('status','successful');
+    const paymentMethodStats = Object.values((pmAll||[]).reduce((acc,row)=>{ const k=row.payment_method; if(!acc[k]) acc[k]={ _id:k, count:0, amount:0 }; acc[k].count+=1; acc[k].amount+=(row.amount||0); return acc; },{}));
 
     // Currency breakdown
-    const currencyStats = await Transaction.aggregate([
-      { $match: { status: 'successful' } },
-      {
-        $group: {
-          _id: '$currency',
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' }
-        }
-      }
-    ]);
+    const { data: curAll } = await supabase.from('transactions').select('currency,amount').eq('status','successful');
+    const currencyStats = Object.values((curAll||[]).reduce((acc,row)=>{ const k=row.currency; if(!acc[k]) acc[k]={ _id:k, count:0, amount:0 }; acc[k].count+=1; acc[k].amount+=(row.amount||0); return acc; },{}));
 
     // Payout statistics
-    const [totalPayouts, pendingPayouts] = await Promise.all([
-      Payout.countDocuments(),
-      Payout.countDocuments({ status: 'pending' })
-    ]);
+    const { count: totalPayouts } = await supabase.from('payouts').select('id',{count:'exact',head:true});
+    const { count: pendingPayouts } = await supabase.from('payouts').select('id',{count:'exact',head:true}).eq('status','pending');
 
-    const payoutAmount = await Payout.aggregate([
-      { $match: { status: { $in: ['completed', 'pending'] } } },
-      {
-        $group: {
-          _id: '$status',
-          amount: { $sum: '$amount' },
-          count: { $sum: 1 }
-        }
-      }
-    ]);
+    const { data: payoutRows } = await supabase.from('payouts').select('status,amount');
+    const payoutAgg = (payoutRows||[]).reduce((acc,p)=>{ const k=p.status; if(!acc[k]) acc[k]={ count:0, amount:0 }; acc[k].count+=1; acc[k].amount+=(p.amount||0); return acc; },{});
 
     const stats = {
       users: {
-        total: totalUsers,
-        active: activeUsers,
+        total: totalUsers2,
+        active: activeUsers2,
         kycPending: kycPendingUsers,
         kycApproved: kycApprovedUsers,
         kycApprovalRate: totalUsers > 0 ? ((kycApprovedUsers / totalUsers) * 100).toFixed(1) : 0
       },
       transactions: {
-        total: totalTransactions,
+        total: totalTransactions2,
         today: todayTransactions,
         thisWeek: weeklyTransactions,
         thisMonth: monthlyTransactions
       },
       revenue: {
-        total: revenueStats[0]?.totalRevenue || 0,
-        totalFees: revenueStats[0]?.totalFees || 0,
-        average: revenueStats[0]?.avgTransaction || 0,
-        today: todayRevenue[0]?.revenue || 0,
-        todayFees: todayRevenue[0]?.fees || 0,
-        todayCount: todayRevenue[0]?.count || 0
+        total: totalRevenue,
+        totalFees: totalFees,
+        average: avgTransaction,
+        today: todayRevenueAmt,
+        todayFees: todayFeesAmt,
+        todayCount: todayCount
       },
       paymentMethods: paymentMethodStats.map(stat => ({
         method: stat._id,
@@ -1105,55 +1059,28 @@ router.get('/payouts', [
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Get payouts with merchant details and stats
-    const [payouts, totalCount, stats] = await Promise.all([
-      Payout.find(filter)
-        .populate('merchant', 'email profile.firstName profile.lastName profile.businessName profile.phone balance')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit))
-        .lean(),
-      Payout.countDocuments(filter),
-      Payout.aggregate([
-        { $match: filter },
-        {
-          $group: {
-            _id: null,
-            total: { $sum: 1 },
-            pending: {
-              $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] }
-            },
-            processing: {
-              $sum: { $cond: [{ $eq: ['$status', 'processing'] }, 1, 0] }
-            },
-            completed: {
-              $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] }
-            },
-            failed: {
-              $sum: { $cond: [{ $eq: ['$status', 'failed'] }, 1, 0] }
-            },
-            cancelled: {
-              $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] }
-            },
-            totalAmount: { $sum: '$amount' },
-            pendingAmount: {
-              $sum: { $cond: [{ $eq: ['$status', 'pending'] }, '$amount', 0] }
-            },
-            processingAmount: {
-              $sum: { $cond: [{ $eq: ['$status', 'processing'] }, '$amount', 0] }
-            },
-            completedAmount: {
-              $sum: { $cond: [{ $eq: ['$status', 'completed'] }, '$amount', 0] }
-            },
-            failedAmount: {
-              $sum: { $cond: [{ $eq: ['$status', 'failed'] }, '$amount', 0] }
-            },
-            cancelledAmount: {
-              $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, '$amount', 0] }
-            }
-          }
-        }
-      ])
-    ]);
+    const { data: payouts } = await supabase
+      .from('payouts')
+      .select('payout_id,amount,status,created_at,completed_at,user_id,destination')
+      .order('created_at',{ ascending:false })
+      .range(skip, skip + parseInt(limit) - 1)
+    const { count: totalCount } = await supabase.from('payouts').select('id',{count:'exact',head:true});
+    const { data: statRows } = await supabase.from('payouts').select('status,amount');
+    const statsAgg = (statRows||[]).reduce((acc,p)=>{ const k=p.status; if(!acc[k]) acc[k]={ count:0, amount:0 }; acc[k].count+=1; acc[k].amount+=(p.amount||0); return acc; },{});
+    const stats = [{
+      total: (statRows||[]).length,
+      pending: statsAgg.pending?.count || 0,
+      processing: statsAgg.processing?.count || 0,
+      completed: statsAgg.completed?.count || 0,
+      failed: statsAgg.failed?.count || 0,
+      cancelled: statsAgg.cancelled?.count || 0,
+      totalAmount: (statRows||[]).reduce((s,p)=>s+(p.amount||0),0),
+      pendingAmount: statsAgg.pending?.amount || 0,
+      processingAmount: statsAgg.processing?.amount || 0,
+      completedAmount: statsAgg.completed?.amount || 0,
+      failedAmount: statsAgg.failed?.amount || 0,
+      cancelledAmount: statsAgg.cancelled?.amount || 0
+    }];
 
     // Calculate 'approved' as processing status for UI compatibility
     const statsData = stats[0] || {};
@@ -1163,17 +1090,17 @@ router.get('/payouts', [
     statsData.rejectedAmount = (statsData.failedAmount || 0) + (statsData.cancelledAmount || 0);
 
     if (format === 'csv') {
-      const csvData = payouts.map(p => ({
-        Reference: p.payoutId,
+      const csvData = (payouts||[]).map(p => ({
+        Reference: p.payout_id,
         Amount: p.amount,
         Status: p.status,
         'Bank Name': p.destination?.bankName,
         'Account Number': p.destination?.accountNumber,
-        'Merchant Email': p.merchant?.email,
-        'Merchant Name': `${p.merchant?.profile?.firstName} ${p.merchant?.profile?.lastName}`,
-        'Business Name': p.merchant?.profile?.businessName,
-        'Created At': p.createdAt,
-        'Processed At': p.completedAt
+        'Merchant Email': '',
+        'Merchant Name': '',
+        'Business Name': '',
+        'Created At': p.created_at,
+        'Processed At': p.completed_at
       }));
 
       res.setHeader('Content-Type', 'text/csv');
@@ -1257,7 +1184,7 @@ router.put('/payouts/:payoutId/process', [
     const { payoutId } = req.params;
     const { action, notes, externalReference } = req.body;
 
-    const payout = await Payout.findById(payoutId).populate('merchant');
+    const { data: payout } = await supabase.from('payouts').select('*,users!inner(email,balance)').eq('id', payoutId).limit(1).maybeSingle();
     if (!payout) {
       return res.status(404).json({
         success: false,
@@ -1273,29 +1200,19 @@ router.put('/payouts/:payoutId/process', [
     }
 
     if (action === 'approve') {
-      // Process the payout
-      await payout.process(req.user.id, notes);
-      
-      // Mark as completed (in real implementation, this would be done after actual transfer)
+      const fee = Payouts.calculateProcessingFee(payout.amount, payout.method)
+      const dec = (payout.amount || 0) + fee
+      await supabase.from('payouts').update({ status:'processing', processed_at: new Date().toISOString(), admin_notes: notes || null }).eq('id', payoutId)
+      const { data: u } = await supabase.from('users').select('balance').eq('id', payout.user_id).limit(1).maybeSingle()
+      const newAvail = Math.max(0, (u?.balance?.available || 0) - dec)
+      await supabase.from('users').update({ balance: { ...(u?.balance||{}), available: newAvail } }).eq('id', payout.user_id)
       if (externalReference) {
-        await payout.complete(externalReference, notes);
+        await supabase.from('payouts').update({ status:'completed', completed_at: new Date().toISOString(), external_reference: externalReference }).eq('id', payoutId)
       }
-
-      res.json({
-        success: true,
-        message: 'Payout approved and processed successfully',
-        payout
-      });
-
+      res.json({ success:true, message:'Payout approved and processed successfully', payout:{ ...payout, status: externalReference ? 'completed' : 'processing' } })
     } else {
-      // Reject the payout
-      await payout.fail(notes || 'Rejected by admin', req.user.id);
-
-      res.json({
-        success: true,
-        message: 'Payout rejected successfully',
-        payout
-      });
+      await supabase.from('payouts').update({ status:'failed', cancelled_at: new Date().toISOString(), cancel_reason: notes || 'Rejected by admin' }).eq('id', payoutId)
+      res.json({ success:true, message:'Payout rejected successfully', payout:{ ...payout, status:'failed' } })
     }
 
   } catch (error) {
