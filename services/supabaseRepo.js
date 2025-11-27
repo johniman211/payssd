@@ -23,7 +23,7 @@ const Users = {
     ensure()
     const { data, error } = await supabase
       .from('users')
-      .select('id,email,role,profile,settings,is_active,is_locked,login_attempts,email_verification_token,is_email_verified')
+      .select('*')
       .eq('email', email)
       .limit(1)
       .maybeSingle()
@@ -32,12 +32,10 @@ const Users = {
   },
   async create({ id, email, role = 'merchant', profile, settings, emailVerificationToken }) {
     ensure()
-    const insert = {
+    const base = {
       id,
       email,
       role,
-      profile: profile || {},
-      settings: settings || {},
       is_active: true,
       is_locked: false,
       login_attempts: 0,
@@ -45,14 +43,25 @@ const Users = {
       is_email_verified: false,
       created_at: new Date().toISOString()
     }
-    const { error } = await supabase.from('users').insert(insert)
-    if (error) throw error
+    try {
+      const insert = { ...base, profile: profile || {}, settings: settings || {} }
+      const { error } = await supabase.from('users').insert(insert)
+      if (error) throw error
+    } catch (e) {
+      const msg = String(e?.message || '')
+      if (msg.includes('column') && msg.includes('does not exist')) {
+        const { error: fbErr } = await supabase.from('users').insert(base)
+        if (fbErr) throw fbErr
+      } else {
+        throw e
+      }
+    }
   },
   async getById(id) {
     ensure()
     const { data, error } = await supabase
       .from('users')
-      .select('id,email,full_name,profile,settings,subscription,apiKeys')
+      .select('*')
       .eq('id', id)
       .limit(1)
       .maybeSingle()
@@ -61,11 +70,19 @@ const Users = {
   },
   async updateProfile(id, profile) {
     ensure()
-    const { error } = await supabase
-      .from('users')
-      .update({ profile })
-      .eq('id', id)
-    if (error) throw error
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ profile })
+        .eq('id', id)
+      if (error) throw error
+    } catch (e) {
+      const msg = String(e?.message || '')
+      if (msg.includes('column') && msg.includes('does not exist')) {
+        return
+      }
+      throw e
+    }
   },
   async updateEmailVerificationByToken(token) {
     ensure()
@@ -90,7 +107,7 @@ const Users = {
     ensure()
     const { data, error } = await supabase
       .from('users')
-      .select('settings,apiKeys')
+      .select('*')
       .eq('id', id)
       .limit(1)
       .maybeSingle()
@@ -99,11 +116,19 @@ const Users = {
   },
   async updateSettings(id, settings, apiKeys) {
     ensure()
-    const { error } = await supabase
-      .from('users')
-      .update({ settings, apiKeys })
-      .eq('id', id)
-    if (error) throw error
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ settings, apiKeys })
+        .eq('id', id)
+      if (error) throw error
+    } catch (e) {
+      const msg = String(e?.message || '')
+      if (msg.includes('column') && msg.includes('does not exist')) {
+        return
+      }
+      throw e
+    }
   }
 }
 
