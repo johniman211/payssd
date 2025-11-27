@@ -164,6 +164,156 @@ const Transactions = {
       .eq('reference', tx_ref)
     if (error) throw error
   }
+  ,
+  async list(user_id, { status, paymentMethod, currency, startDate, endDate, minAmount, maxAmount, search, page = 1, limit = 20 }) {
+    ensure()
+    let q = supabase
+      .from('transactions')
+      .select('transaction_id,reference,amount,currency,status,payment_method,customer,description,fees,created_at,completed_at', { count: 'exact' })
+      .eq('user_id', user_id)
+    if (status) q = q.eq('status', status)
+    if (paymentMethod) q = q.eq('payment_method', paymentMethod)
+    if (currency) q = q.eq('currency', currency)
+    if (startDate) q = q.gte('created_at', new Date(startDate).toISOString())
+    if (endDate) q = q.lte('created_at', new Date(endDate).toISOString())
+    if (minAmount) q = q.gte('amount', parseFloat(minAmount))
+    if (maxAmount) q = q.lte('amount', parseFloat(maxAmount))
+    if (search) {
+      q = q.or(`transaction_id.ilike.%${search}%,description.ilike.%${search}%`) // customer name search can be added via computed index
+    }
+    q = q.order('created_at', { ascending: false }).range((page - 1) * limit, (page - 1) * limit + (limit - 1))
+    const { data, error, count } = await q
+    if (error) throw error
+    return { data: data || [], totalCount: count || 0 }
+  },
+  async getByTransactionId(user_id, transaction_id) {
+    ensure()
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_id', user_id)
+      .eq('transaction_id', transaction_id)
+      .limit(1)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+  async statsOverview(user_id) {
+    ensure()
+    const { data: all } = await supabase
+      .from('transactions')
+      .select('amount,fees,status,payment_method,currency,created_at')
+      .eq('user_id', user_id)
+    const successful = (all || []).filter(t => t.status === 'successful')
+    const totalTransactions = (all || []).length
+    const successfulTransactions = successful.length
+    const totalAmount = (all || []).reduce((s, t) => s + (t.amount || 0), 0)
+    const totalFees = (all || []).reduce((s, t) => s + ((t.fees?.totalFees || t.fees?.total || 0)), 0)
+    const averageTransaction = totalTransactions ? Math.round(totalAmount / totalTransactions) : 0
+    const successRate = totalTransactions ? Math.round((successfulTransactions / totalTransactions) * 100) : 0
+    return { totalTransactions, successfulTransactions, totalAmount, totalFees, averageTransaction, successRate }
+  }
 }
 
-module.exports = { supabase, Users, PaymentLinks, Transactions, calculatePlatformFee }
+const Payouts = {
+  calculateProcessingFee(amount, method) {
+    const table = {
+      bank_transfer: { fixed: 2, percentage: 0.015 },
+      mobile_money: { fixed: 1, percentage: 0.01 },
+      cash_pickup: { fixed: 5, percentage: 0.02 }
+    }
+    const feeCfg = table[method] || table.bank_transfer
+    return Math.round((amount * feeCfg.percentage) + feeCfg.fixed)
+  },
+  async list(user_id, { status, currency, method, startDate, endDate, page = 1, limit = 20 }) {
+    ensure()
+    let q = supabase.from('payouts').select('id,payout_id,amount,currency,method,status,created_at,completed_at').eq('user_id', user_id)
+    if (status) q = q.eq('status', status)
+    if (currency) q = q.eq('currency', currency)
+    if (method) q = q.eq('method', method)
+    if (startDate) q = q.gte('created_at', new Date(startDate).toISOString())
+    if (endDate) q = q.lte('created_at', new Date(endDate).toISOString())
+    q = q.order('created_at', { ascending: false }).range((page - 1) * limit, (page - 1) * limit + (limit - 1))
+    const { data, error, count } = await q
+    if (error) throw error
+    // Supabase count requires head:true, but we can fetch total separately
+    const { count: totalCount } = await supabase
+      .from('payouts')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user_id)
+    return { data: data || [], totalCount: totalCount || 0 }
+  },
+  async getByPayoutId(user_id, payout_id) {
+    ensure()
+    const { data, error } = await supabase
+      .from('payouts')
+      .select('*')
+      .eq('user_id', user_id)
+      .eq('payout_id', payout_id)
+      .limit(1)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+  async countPending(user_id) {
+    ensure()
+    const { count } = await supabase
+      .from('payouts')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user_id)
+      .in('status', ['pending','processing'])
+    return count || 0
+  },
+  async create({ user_id, amount, currency, method, destination, notes }) {
+    ensure()
+    const processingFee = Payouts.calculateProcessingFee(amount, method)
+    const insert = {
+      user_id,
+      amount,
+      currency,
+      method,
+      destination,
+      fees: { processingFee },
+      notes,
+      status: 'pending',
+      created_at: new Date().toISOString()
+    }
+    const { data, error } = await supabase
+      .from('payouts')
+      .insert(insert)
+      .select('id,payout_id,amount,currency,method,fees,status,created_at')
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+  async cancel(user_id, payout_id) {
+    ensure()
+    const { data, error } = await supabase
+      .from('payouts')
+      .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancel_reason: 'Cancelled by merchant' })
+      .eq('user_id', user_id)
+      .eq('payout_id', payout_id)
+      .select('*')
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+  async statsOverview(user_id) {
+    ensure()
+    const { data: all } = await supabase
+      .from('payouts')
+      .select('amount,fees,status,method,currency,created_at')
+      .eq('user_id', user_id)
+    const completed = (all || []).filter(p => p.status === 'completed')
+    const totalPayouts = (all || []).length
+    const completedPayouts = completed.length
+    const totalAmount = (all || []).reduce((s, p) => s + (p.amount || 0), 0)
+    const totalFees = (all || []).reduce((s, p) => s + ((p.fees?.processingFee) || 0), 0)
+    const averagePayout = totalPayouts ? Math.round(totalAmount / totalPayouts) : 0
+    const successRate = totalPayouts ? Math.round((completedPayouts / totalPayouts) * 100) : 0
+    const recent = (all || []).sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0,5)
+    return { totalPayouts, completedPayouts, totalAmount, totalFees, averagePayout, successRate, recent }
+  }
+}
+
+module.exports = { supabase, Users, PaymentLinks, Transactions, Payouts, calculatePlatformFee }

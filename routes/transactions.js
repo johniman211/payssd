@@ -1,6 +1,6 @@
 const express = require('express');
 const { query, validationResult } = require('express-validator');
-const Transaction = require('../models/Transaction');
+const { Transactions } = require('../services/supabaseRepo');
 const { auth, merchantAuth, apiKeyAuth } = require('../middleware/auth');
 const router = express.Router();
 
@@ -54,49 +54,18 @@ router.get('/', [merchantApiAuth,
       search
     } = req.query;
 
-    // Build filter query
-    const filter = { merchant: req.user.id };
-
-    if (status) filter.status = status;
-    if (paymentMethod) filter.paymentMethod = paymentMethod;
-    if (currency) filter.currency = currency;
-
-    // Date range filter
-    if (startDate || endDate) {
-      filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = new Date(startDate);
-      if (endDate) filter.createdAt.$lte = new Date(endDate);
-    }
-
-    // Amount range filter
-    if (minAmount || maxAmount) {
-      filter.amount = {};
-      if (minAmount) filter.amount.$gte = parseFloat(minAmount);
-      if (maxAmount) filter.amount.$lte = parseFloat(maxAmount);
-    }
-
-    // Search filter (transaction ID, customer name, description)
-    if (search) {
-      filter.$or = [
-        { transactionId: { $regex: search, $options: 'i' } },
-        { 'customer.name': { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
-      ];
-    }
-
-    // Calculate pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-
-    // Get transactions with pagination
-    const [transactions, totalCount] = await Promise.all([
-      Transaction.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit))
-        .select('-providerResponse -metadata')
-        .lean(),
-      Transaction.countDocuments(filter)
-    ]);
+    const { data: transactions, totalCount } = await Transactions.list(req.user.id, {
+      status,
+      paymentMethod,
+      currency,
+      startDate,
+      endDate,
+      minAmount,
+      maxAmount,
+      search,
+      page: parseInt(page),
+      limit: parseInt(limit)
+    })
 
     // Calculate pagination info
     const totalPages = Math.ceil(totalCount / parseInt(limit));
@@ -127,10 +96,7 @@ router.get('/:transactionId', [merchantApiAuth], async (req, res) => {
   try {
     const { transactionId } = req.params;
 
-    const transaction = await Transaction.findOne({
-      transactionId,
-      merchant: req.user.id
-    }).lean();
+    const transaction = await Transactions.getByTransactionId(req.user.id, transactionId)
 
     if (!transaction) {
       return res.status(404).json({
@@ -164,114 +130,70 @@ router.get('/analytics/overview', [merchantApiAuth], async (req, res) => {
     const startOfYear = new Date(now.getFullYear(), 0, 1);
 
     // Get overall statistics
-    const overallStats = await Transaction.getMerchantStats(userId);
+    const overallStats = await Transactions.statsOverview(userId);
 
     // Get today's transactions
-    const todayStats = await Transaction.aggregate([
-      {
-        $match: {
-          merchant: req.user.id,
-          createdAt: { $gte: today }
-        }
-      },
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' },
-          fees: { $sum: '$fees.total' }
-        }
-      }
-    ]);
+    const { data: todayRows } = await require('../services/supabaseClient').supabase
+      .from('transactions')
+      .select('status,amount,fees')
+      .eq('user_id', userId)
+      .gte('created_at', today.toISOString())
+    const todayStats = Object.values((todayRows||[]).reduce((acc,row)=>{
+      const k=row.status; if(!acc[k]) acc[k]={ _id:k, count:0, amount:0, fees:0 }
+      acc[k].count += 1; acc[k].amount += (row.amount||0); acc[k].fees += (row.fees?.total || row.fees?.totalFees || 0); return acc
+    },{}))
 
     // Get yesterday's transactions for comparison
-    const yesterdayStats = await Transaction.aggregate([
-      {
-        $match: {
-          merchant: req.user.id,
-          createdAt: { $gte: yesterday, $lt: today }
-        }
-      },
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' }
-        }
-      }
-    ]);
+    const { data: yRows } = await require('../services/supabaseClient').supabase
+      .from('transactions')
+      .select('status,amount')
+      .eq('user_id', userId)
+      .gte('created_at', yesterday.toISOString())
+      .lt('created_at', today.toISOString())
+    const yesterdayStats = Object.values((yRows||[]).reduce((acc,row)=>{
+      const k=row.status; if(!acc[k]) acc[k]={ _id:k, count:0, amount:0 }
+      acc[k].count += 1; acc[k].amount += (row.amount||0); return acc
+    },{}))
 
     // Get weekly stats
-    const weeklyStats = await Transaction.aggregate([
-      {
-        $match: {
-          merchant: req.user.id,
-          createdAt: { $gte: startOfWeek },
-          status: 'successful'
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' },
-          fees: { $sum: '$fees.total' }
-        }
-      }
-    ]);
+    const { data: weekRows } = await require('../services/supabaseClient').supabase
+      .from('transactions')
+      .select('amount,fees')
+      .eq('user_id', userId)
+      .eq('status','successful')
+      .gte('created_at', startOfWeek.toISOString())
+    const weeklyStats = [{ count: (weekRows||[]).length, amount: (weekRows||[]).reduce((s,t)=>s+(t.amount||0),0), fees: (weekRows||[]).reduce((s,t)=>s+((t.fees?.total||t.fees?.totalFees||0)),0) }]
 
     // Get monthly stats
-    const monthlyStats = await Transaction.aggregate([
-      {
-        $match: {
-          merchant: req.user.id,
-          createdAt: { $gte: startOfMonth },
-          status: 'successful'
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' },
-          fees: { $sum: '$fees.total' }
-        }
-      }
-    ]);
+    const { data: monthRows } = await require('../services/supabaseClient').supabase
+      .from('transactions')
+      .select('amount,fees')
+      .eq('user_id', userId)
+      .eq('status','successful')
+      .gte('created_at', startOfMonth.toISOString())
+    const monthlyStats = [{ count: (monthRows||[]).length, amount: (monthRows||[]).reduce((s,t)=>s+(t.amount||0),0), fees: (monthRows||[]).reduce((s,t)=>s+((t.fees?.total||t.fees?.totalFees||0)),0) }]
 
     // Get payment method breakdown
-    const paymentMethodStats = await Transaction.aggregate([
-      {
-        $match: {
-          merchant: req.user.id,
-          status: 'successful'
-        }
-      },
-      {
-        $group: {
-          _id: '$paymentMethod',
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' }
-        }
-      }
-    ]);
+    const { data: pmRows } = await require('../services/supabaseClient').supabase
+      .from('transactions')
+      .select('payment_method,amount,status')
+      .eq('user_id', userId)
+      .eq('status','successful')
+    const paymentMethodStats = Object.values((pmRows||[]).reduce((acc,row)=>{
+      const k=row.payment_method; if(!acc[k]) acc[k]={ _id:k, count:0, amount:0 }
+      acc[k].count += 1; acc[k].amount += (row.amount||0); return acc
+    },{}))
 
     // Get currency breakdown
-    const currencyStats = await Transaction.aggregate([
-      {
-        $match: {
-          merchant: req.user.id,
-          status: 'successful'
-        }
-      },
-      {
-        $group: {
-          _id: '$currency',
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' }
-        }
-      }
-    ]);
+    const { data: curRows } = await require('../services/supabaseClient').supabase
+      .from('transactions')
+      .select('currency,amount,status')
+      .eq('user_id', userId)
+      .eq('status','successful')
+    const currencyStats = Object.values((curRows||[]).reduce((acc,row)=>{
+      const k=row.currency; if(!acc[k]) acc[k]={ _id:k, count:0, amount:0 }
+      acc[k].count += 1; acc[k].amount += (row.amount||0); return acc
+    },{}))
 
     // Process today's stats
     const todaySuccessful = todayStats.find(s => s._id === 'successful') || { count: 0, amount: 0, fees: 0 };
@@ -500,7 +422,7 @@ router.get('/export/csv', [merchantApiAuth,
     const { startDate, endDate, status } = req.query;
 
     // Build filter
-    const filter = { merchant: req.user.id };
+    const filter = { user_id: req.user.id };
     
     if (status) filter.status = status;
     
@@ -511,10 +433,11 @@ router.get('/export/csv', [merchantApiAuth,
     }
 
     // Get transactions
-    const transactions = await Transaction.find(filter)
-      .sort({ createdAt: -1 })
-      .select('transactionId amount currency status paymentMethod customer description fees createdAt completedAt')
-      .lean();
+    const { data: transactions } = await require('../services/supabaseClient').supabase
+      .from('transactions')
+      .select('transaction_id,amount,currency,status,payment_method,customer,description,fees,created_at,completed_at')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
 
     // Generate CSV content
     const csvHeaders = [
@@ -534,21 +457,21 @@ router.get('/export/csv', [merchantApiAuth,
       'Completed At'
     ];
 
-    const csvRows = transactions.map(transaction => [
-      transaction.transactionId,
-      new Date(transaction.createdAt).toISOString(),
-      transaction.customer.name,
-      transaction.customer.phoneNumber,
-      transaction.description,
-      transaction.amount,
-      transaction.currency,
-      transaction.paymentMethod === 'mtn_momo' ? 'MTN Mobile Money' : 'Digicash',
-      transaction.status,
-      transaction.fees?.platform || 0,
-      transaction.fees?.provider || 0,
-      transaction.fees?.total || 0,
-      transaction.fees?.merchantReceives || transaction.amount,
-      transaction.completedAt ? new Date(transaction.completedAt).toISOString() : ''
+    const csvRows = (transactions||[]).map(t => [
+      t.transaction_id,
+      new Date(t.created_at).toISOString(),
+      t.customer?.name || '',
+      t.customer?.phoneNumber || '',
+      t.description || '',
+      t.amount,
+      t.currency,
+      (t.payment_method||'').toLowerCase() === 'mtn_momo' ? 'MTN Mobile Money' : (t.payment_method||'') === 'mobilemoney' ? 'Mobile Money' : (t.payment_method||'') === 'mpesa' ? 'M-Pesa' : (t.payment_method||'') === 'banktransfer' ? 'Bank Transfer' : (t.payment_method||'') === 'card' ? 'Card' : 'Flutterwave',
+      t.status,
+      t.fees?.platformFee || t.fees?.platform || 0,
+      t.fees?.providerFee || t.fees?.provider || 0,
+      t.fees?.totalFees || t.fees?.total || 0,
+      (t.amount - (t.fees?.totalFees || t.fees?.total || 0)),
+      t.completed_at ? new Date(t.completed_at).toISOString() : ''
     ]);
 
     // Create CSV content

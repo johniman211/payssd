@@ -1,7 +1,6 @@
 const express = require('express');
 const { body, query, validationResult } = require('express-validator');
-const Payout = require('../models/Payout');
-const User = require('../models/User');
+const { Payouts, Users } = require('../services/supabaseRepo');
 const { auth, merchantAuth } = require('../middleware/auth');
 const { requireEmailVerification } = require('../middleware/emailVerification');
 const router = express.Router();
@@ -60,33 +59,15 @@ router.get('/', [
       endDate
     } = req.query;
 
-    // Build filter query
-    const filter = { merchant: req.user.id };
-
-    if (status) filter.status = status;
-    if (currency) filter.currency = currency;
-    if (method) filter.payoutMethod = method;
-
-    // Date range filter
-    if (startDate || endDate) {
-      filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = new Date(startDate);
-      if (endDate) filter.createdAt.$lte = new Date(endDate);
-    }
-
-    // Calculate pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-
-    // Get payouts with pagination
-    const [payouts, totalCount] = await Promise.all([
-      Payout.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit))
-        .select('-verification -metadata')
-        .lean(),
-      Payout.countDocuments(filter)
-    ]);
+    const { data: payouts, totalCount } = await Payouts.list(req.user.id, {
+      status,
+      currency,
+      method,
+      startDate,
+      endDate,
+      page: parseInt(page),
+      limit: parseInt(limit)
+    })
 
     // Calculate pagination info
     const totalPages = Math.ceil(totalCount / parseInt(limit));
@@ -117,10 +98,7 @@ router.get('/:payoutId', [auth, requireEmailVerification, merchantAuth], async (
   try {
     const { payoutId } = req.params;
 
-    const payout = await Payout.findOne({
-      payoutId,
-      merchant: req.user.id
-    }).lean();
+    const payout = await Payouts.getByPayoutId(req.user.id, payoutId)
 
     if (!payout) {
       return res.status(404).json({
@@ -204,7 +182,7 @@ router.post('/request', [
     const { amount, currency, method, destination, notes } = req.body;
 
     // Get merchant details
-    const merchant = await User.findById(req.user.id);
+    const merchant = await Users.getById(req.user.id);
     if (!merchant) {
       return res.status(404).json({
         success: false,
@@ -213,7 +191,7 @@ router.post('/request', [
     }
 
     // Check if merchant has sufficient balance
-    const availableBalance = merchant.balance?.available || 0;
+    const availableBalance = merchant?.balance?.available || 0;
     if (availableBalance < amount) {
       return res.status(400).json({
         success: false,
@@ -222,10 +200,7 @@ router.post('/request', [
     }
 
     // Check for pending payouts
-    const pendingPayouts = await Payout.countDocuments({
-      merchant: req.user.id,
-      status: { $in: ['pending', 'processing'] }
-    });
+    const pendingPayouts = await Payouts.countPending(req.user.id)
 
     if (pendingPayouts >= 3) {
       return res.status(400).json({
@@ -235,7 +210,7 @@ router.post('/request', [
     }
 
     // Calculate processing fee
-    const processingFee = Payout.calculateProcessingFee(amount, method);
+    const processingFee = Payouts.calculateProcessingFee(amount, method);
     const netAmount = amount - processingFee;
 
     if (netAmount <= 0) {
@@ -254,20 +229,7 @@ router.post('/request', [
     }
 
     // Create payout request
-    const payout = new Payout({
-      merchant: req.user.id,
-      amount,
-      currency,
-      payoutMethod: method,
-      destination,
-      fees: {
-        processingFee: processingFee
-      },
-      merchantNotes: notes,
-      status: 'pending'
-    });
-
-    await payout.save();
+    const payout = await Payouts.create({ user_id: req.user.id, amount, currency, method, destination, notes })
 
     // Hold funds will occur on admin approval via process()
 
@@ -275,14 +237,14 @@ router.post('/request', [
       success: true,
       message: 'Payout request submitted successfully',
       payout: {
-        _id: payout._id,
-        payoutId: payout.payoutId,
+        _id: payout.id,
+        payoutId: payout.payout_id,
         amount: payout.amount,
         currency: payout.currency,
-        payoutMethod: payout.payoutMethod,
+        payoutMethod: payout.method,
         fees: payout.fees,
         status: payout.status,
-        createdAt: payout.createdAt
+        createdAt: payout.created_at
       }
     });
 
@@ -297,10 +259,7 @@ router.put('/:payoutId/cancel', [auth, requireEmailVerification, merchantAuth], 
   try {
     const { payoutId } = req.params;
 
-    const payout = await Payout.findOne({
-      payoutId,
-      merchant: req.user.id
-    });
+    const payout = await Payouts.getByPayoutId(req.user.id, payoutId)
 
     if (!payout) {
       return res.status(404).json({
@@ -316,7 +275,7 @@ router.put('/:payoutId/cancel', [auth, requireEmailVerification, merchantAuth], 
       });
     }
 
-    await payout.cancel('Cancelled by merchant');
+    await Payouts.cancel(req.user.id, payoutId)
 
     res.json({
       success: true,
@@ -339,91 +298,73 @@ router.get('/stats/overview', [auth, requireEmailVerification, merchantAuth], as
     const startOfYear = new Date(now.getFullYear(), 0, 1);
 
     // Get overall payout statistics
-    const overallStats = await Payout.getMerchantPayoutStats(userId);
+    const overallStats = await Payouts.statsOverview(userId);
 
     // Get this month's payouts
-    const monthlyStats = await Payout.aggregate([
-      {
-        $match: {
-          merchant: req.user.id,
-          createdAt: { $gte: startOfMonth },
-          status: 'completed'
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' },
-          fees: { $sum: '$fees.processingFee' }
-        }
-      }
-    ]);
+    const { data: monthlyRows } = await require('../services/supabaseClient').supabase
+      .from('payouts')
+      .select('amount,fees')
+      .eq('user_id', userId)
+      .eq('status', 'completed')
+      .gte('created_at', startOfMonth.toISOString())
+    const monthlyStats = [{
+      count: (monthlyRows || []).length,
+      amount: (monthlyRows || []).reduce((s,p)=>s+(p.amount||0),0),
+      fees: (monthlyRows || []).reduce((s,p)=>s+((p.fees?.processingFee)||0),0)
+    }]
 
     // Get this year's payouts
-    const yearlyStats = await Payout.aggregate([
-      {
-        $match: {
-          merchant: req.user.id,
-          createdAt: { $gte: startOfYear },
-          status: 'completed'
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' },
-          fees: { $sum: '$fees.processingFee' }
-        }
-      }
-    ]);
+    const { data: yearlyRows } = await require('../services/supabaseClient').supabase
+      .from('payouts')
+      .select('amount,fees')
+      .eq('user_id', userId)
+      .eq('status', 'completed')
+      .gte('created_at', startOfYear.toISOString())
+    const yearlyStats = [{
+      count: (yearlyRows || []).length,
+      amount: (yearlyRows || []).reduce((s,p)=>s+(p.amount||0),0),
+      fees: (yearlyRows || []).reduce((s,p)=>s+((p.fees?.processingFee)||0),0)
+    }]
 
     // Get method breakdown
-    const methodStats = await Payout.aggregate([
-      {
-        $match: {
-          merchant: req.user.id,
-          status: 'completed'
-        }
-      },
-      {
-        $group: {
-          _id: '$payoutMethod',
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' }
-        }
-      }
-    ]);
+    const { data: methodRows } = await require('../services/supabaseClient').supabase
+      .from('payouts')
+      .select('method,amount,status')
+      .eq('user_id', userId)
+      .eq('status', 'completed')
+    const methodStats = Object.values((methodRows||[]).reduce((acc,row)=>{
+      const k=row.method; if(!acc[k]) acc[k]={ _id:k, count:0, amount:0 }
+      acc[k].count += 1; acc[k].amount += (row.amount||0); return acc
+    },{}))
 
     // Get currency breakdown
-    const currencyStats = await Payout.aggregate([
-      {
-        $match: {
-          merchant: req.user.id,
-          status: 'completed'
-        }
-      },
-      {
-        $group: {
-          _id: '$currency',
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' }
-        }
-      }
-    ]);
+    const { data: currencyRows } = await require('../services/supabaseClient').supabase
+      .from('payouts')
+      .select('currency,amount,status')
+      .eq('user_id', userId)
+      .eq('status', 'completed')
+    const currencyStats = Object.values((currencyRows||[]).reduce((acc,row)=>{
+      const k=row.currency; if(!acc[k]) acc[k]={ _id:k, count:0, amount:0 }
+      acc[k].count += 1; acc[k].amount += (row.amount||0); return acc
+    },{}))
 
     // Get pending payouts
-    const pendingPayouts = await Payout.getPendingPayouts(userId);
+    const { data: pendingRows } = await require('../services/supabaseClient').supabase
+      .from('payouts')
+      .select('amount')
+      .eq('user_id', userId)
+      .in('status', ['pending','processing'])
 
     // Get recent payouts
-    const recentPayouts = await Payout.find({
-      merchant: userId
-    })
-    .sort({ createdAt: -1 })
-    .limit(5)
-    .select('payoutId amount currency payoutMethod status createdAt completedAt')
-    .lean();
+    const recentPayouts = overallStats.recent.map(r=>({
+      payoutId: r.payout_id,
+      amount: r.amount,
+      currency: r.currency,
+      payoutMethod: r.method,
+      status: r.status,
+      createdAt: r.created_at,
+      completedAt: r.completed_at
+    }))
 
     const stats = {
       overview: {
@@ -461,8 +402,8 @@ router.get('/stats/overview', [auth, requireEmailVerification, merchantAuth], as
           : 0
       })),
       pending: {
-        count: pendingPayouts.length,
-        amount: pendingPayouts.reduce((sum, p) => sum + p.amount, 0)
+        count: (pendingRows||[]).length,
+        amount: (pendingRows||[]).reduce((sum, p) => sum + (p.amount||0), 0)
       },
       recent: recentPayouts
     };
