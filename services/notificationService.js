@@ -693,27 +693,41 @@ const sendNotification = async (transaction) => {
     const notifications = [];
 
     // Send email notification if enabled
-    if (merchant.settings.notifications.email) {
-      if (transaction.status === 'successful') {
-        notifications.push(sendPaymentSuccessEmail(transaction, merchant));
-      } else if (transaction.status === 'failed') {
-        notifications.push(sendPaymentFailedEmail(transaction, merchant));
-      }
+    if (merchant.settings.notifications.emailNotifications && merchant.settings.notifications.paymentReceived && transaction.status === 'successful') {
+      notifications.push(sendPaymentSuccessEmail(transaction, merchant));
+    } else if (merchant.settings.notifications.emailNotifications && merchant.settings.notifications.paymentFailed && transaction.status === 'failed') {
+      notifications.push(sendPaymentFailedEmail(transaction, merchant));
     }
 
     // Send SMS notification if enabled
-    if (merchant.settings.notifications.sms) {
-      if (transaction.status === 'successful') {
-        notifications.push(sendPaymentSuccessSMS(transaction, merchant));
-      } else if (transaction.status === 'failed') {
-        notifications.push(sendPaymentFailedSMS(transaction, merchant));
-      }
+    if (merchant.settings.notifications.smsNotifications && merchant.settings.notifications.paymentReceived && transaction.status === 'successful') {
+      notifications.push(sendPaymentSuccessSMS(transaction, merchant));
+    } else if (merchant.settings.notifications.smsNotifications && merchant.settings.notifications.paymentFailed && transaction.status === 'failed') {
+      notifications.push(sendPaymentFailedSMS(transaction, merchant));
     }
 
     // Send admin notification for successful payments (check settings)
     if (transaction.status === 'successful') {
       // For now, we'll send admin notifications. In a real app, check admin settings
       notifications.push(sendAdminPaymentNotificationEmail(transaction, merchant));
+    }
+
+    // Insert Supabase in-app notification (optional)
+    try {
+      const { supabase } = require('./supabaseClient')
+      if (supabase) {
+        const title = transaction.status === 'successful' ? 'Payment Received' : (transaction.status === 'failed' ? 'Payment Failed' : 'Transaction Update')
+        const message = `${title}: ${transaction.currency} ${transaction.amount.toLocaleString()} from ${transaction.customer?.name || 'Customer'} (ID ${transaction.transactionId})`
+        await supabase.from('notifications').insert({
+          user_id: merchant._id.toString(),
+          type: 'transaction_status',
+          title,
+          message,
+          read: false
+        })
+      }
+    } catch (e) {
+      console.log('Supabase notification skipped:', e.message)
     }
 
     // Wait for all notifications to complete
