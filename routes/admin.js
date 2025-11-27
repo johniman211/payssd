@@ -1500,27 +1500,22 @@ router.put('/kyc-submissions/:id/reject', [auth, adminAuth], async (req, res) =>
       return res.status(400).json({ message: 'Rejection reason is required' });
     }
 
-    const user = await User.findById(id);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    const { data: user } = await supabase
+      .from('users')
+      .select('id,email,kyc')
+      .eq('id', id)
+      .limit(1)
+      .maybeSingle();
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if ((user.kyc?.status || '') !== 'pending') return res.status(400).json({ message: 'KYC submission is not pending' });
 
-    if (user.kyc.status !== 'pending') {
-      return res.status(400).json({ message: 'KYC submission is not pending' });
-    }
-
-    user.kyc.status = 'rejected';
-    user.kyc.reviewedAt = new Date();
-    user.kyc.reviewedBy = req.user.id;
-    user.kyc.rejectionReason = reason;
-    if (notes) user.kyc.adminNotes = notes;
-
-    await user.save();
+    const kyc = { ...(user.kyc||{}), status: 'rejected', reviewedAt: new Date().toISOString(), reviewedBy: req.user.id, rejectionReason: reason, adminNotes: notes || null };
+    await supabase.from('users').update({ kyc }).eq('id', id);
 
     // Send KYC rejection email (non-blocking)
     try {
       if (user.email) {
-        sendKYCRejectedEmail(user, reason).catch(err => {
+        sendKYCRejectedEmail({ email: user.email, kyc }, reason).catch(err => {
           console.error('KYC rejected email failed:', err?.message || err);
         });
       }
@@ -1528,15 +1523,7 @@ router.put('/kyc-submissions/:id/reject', [auth, adminAuth], async (req, res) =>
       console.error('KYC rejected email error wrapper:', e?.message || e);
     }
 
-    res.json({
-      success: true,
-      message: 'KYC submission rejected successfully',
-      user: {
-        id: user._id,
-        email: user.email,
-        kyc: user.kyc
-      }
-    });
+    res.json({ success: true, message: 'KYC submission rejected successfully', user: { id, email: user.email, kyc } });
   } catch (error) {
     console.error('Reject KYC error:', error);
     res.status(500).json({ message: 'Server error' });
