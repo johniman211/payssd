@@ -1,6 +1,5 @@
-const { Users } = require('./supabaseRepo')
+const { Users, supabase } = require('./supabaseRepo')
 const supaAuth = require('./supabaseAuth')
-const { supabase } = require('./supabaseClient')
 
 const bootstrapAdmin = async () => {
   try {

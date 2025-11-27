@@ -1,7 +1,6 @@
 const express = require('express');
 const { query, body, param, validationResult } = require('express-validator');
-const { Users, Transactions, Payouts } = require('../services/supabaseRepo');
-const { supabase } = require('../services/supabaseClient');
+const { Users, Transactions, Payouts, supabase } = require('../services/supabaseRepo');
 const { auth, adminAuth } = require('../middleware/auth');
 const { sendKYCApprovedEmail, sendKYCRejectedEmail, sendAdminNewUserEmail, sendAdminUserDeletedEmail } = require('../services/notificationService');
 const { getSettings, updateSettings } = require('../services/settingsStore');

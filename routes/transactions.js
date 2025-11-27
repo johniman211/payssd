@@ -133,7 +133,8 @@ router.get('/analytics/overview', [merchantApiAuth], async (req, res) => {
     const overallStats = await Transactions.statsOverview(userId);
 
     // Get today's transactions
-    const { data: todayRows } = await require('../services/supabaseClient').supabase
+    const { supabase } = require('../services/supabaseRepo')
+    const { data: todayRows } = await supabase
       .from('transactions')
       .select('status,amount,fees')
       .eq('user_id', userId)
@@ -144,7 +145,7 @@ router.get('/analytics/overview', [merchantApiAuth], async (req, res) => {
     },{}))
 
     // Get yesterday's transactions for comparison
-    const { data: yRows } = await require('../services/supabaseClient').supabase
+    const { data: yRows } = await supabase
       .from('transactions')
       .select('status,amount')
       .eq('user_id', userId)
@@ -156,7 +157,7 @@ router.get('/analytics/overview', [merchantApiAuth], async (req, res) => {
     },{}))
 
     // Get weekly stats
-    const { data: weekRows } = await require('../services/supabaseClient').supabase
+    const { data: weekRows } = await supabase
       .from('transactions')
       .select('amount,fees')
       .eq('user_id', userId)
@@ -165,7 +166,7 @@ router.get('/analytics/overview', [merchantApiAuth], async (req, res) => {
     const weeklyStats = [{ count: (weekRows||[]).length, amount: (weekRows||[]).reduce((s,t)=>s+(t.amount||0),0), fees: (weekRows||[]).reduce((s,t)=>s+((t.fees?.total||t.fees?.totalFees||0)),0) }]
 
     // Get monthly stats
-    const { data: monthRows } = await require('../services/supabaseClient').supabase
+    const { data: monthRows } = await supabase
       .from('transactions')
       .select('amount,fees')
       .eq('user_id', userId)
@@ -174,7 +175,7 @@ router.get('/analytics/overview', [merchantApiAuth], async (req, res) => {
     const monthlyStats = [{ count: (monthRows||[]).length, amount: (monthRows||[]).reduce((s,t)=>s+(t.amount||0),0), fees: (monthRows||[]).reduce((s,t)=>s+((t.fees?.total||t.fees?.totalFees||0)),0) }]
 
     // Get payment method breakdown
-    const { data: pmRows } = await require('../services/supabaseClient').supabase
+    const { data: pmRows } = await supabase
       .from('transactions')
       .select('payment_method,amount,status')
       .eq('user_id', userId)
@@ -185,7 +186,7 @@ router.get('/analytics/overview', [merchantApiAuth], async (req, res) => {
     },{}))
 
     // Get currency breakdown
-    const { data: curRows } = await require('../services/supabaseClient').supabase
+    const { data: curRows } = await supabase
       .from('transactions')
       .select('currency,amount,status')
       .eq('user_id', userId)
@@ -433,7 +434,7 @@ router.get('/export/csv', [merchantApiAuth,
     }
 
     // Get transactions
-    const { data: transactions } = await require('../services/supabaseClient').supabase
+    const { data: transactions } = await supabase
       .from('transactions')
       .select('transaction_id,amount,currency,status,payment_method,customer,description,fees,created_at,completed_at')
       .eq('user_id', req.user.id)

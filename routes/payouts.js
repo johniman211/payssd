@@ -301,7 +301,8 @@ router.get('/stats/overview', [auth, requireEmailVerification, merchantAuth], as
     const overallStats = await Payouts.statsOverview(userId);
 
     // Get this month's payouts
-    const { data: monthlyRows } = await require('../services/supabaseClient').supabase
+    const { supabase } = require('../services/supabaseRepo')
+    const { data: monthlyRows } = await supabase
       .from('payouts')
       .select('amount,fees')
       .eq('user_id', userId)
@@ -314,7 +315,7 @@ router.get('/stats/overview', [auth, requireEmailVerification, merchantAuth], as
     }]
 
     // Get this year's payouts
-    const { data: yearlyRows } = await require('../services/supabaseClient').supabase
+    const { data: yearlyRows } = await supabase
       .from('payouts')
       .select('amount,fees')
       .eq('user_id', userId)
@@ -327,7 +328,7 @@ router.get('/stats/overview', [auth, requireEmailVerification, merchantAuth], as
     }]
 
     // Get method breakdown
-    const { data: methodRows } = await require('../services/supabaseClient').supabase
+    const { data: methodRows } = await supabase
       .from('payouts')
       .select('method,amount,status')
       .eq('user_id', userId)
@@ -338,7 +339,7 @@ router.get('/stats/overview', [auth, requireEmailVerification, merchantAuth], as
     },{}))
 
     // Get currency breakdown
-    const { data: currencyRows } = await require('../services/supabaseClient').supabase
+    const { data: currencyRows } = await supabase
       .from('payouts')
       .select('currency,amount,status')
       .eq('user_id', userId)
@@ -349,7 +350,7 @@ router.get('/stats/overview', [auth, requireEmailVerification, merchantAuth], as
     },{}))
 
     // Get pending payouts
-    const { data: pendingRows } = await require('../services/supabaseClient').supabase
+    const { data: pendingRows } = await supabase
       .from('payouts')
       .select('amount')
       .eq('user_id', userId)

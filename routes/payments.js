@@ -627,8 +627,7 @@ router.post('/webhook/flutterwave', async (req, res) => {
       return res.status(400).json({ message: 'Missing tx_ref' });
     }
 
-    const { Users, Transactions: TxRepo } = require('../services/supabaseRepo')
-    const { supabase } = require('../services/supabaseClient')
+    const { Users, Transactions: TxRepo, supabase } = require('../services/supabaseRepo')
     const { data: txRow } = await supabase
       .from('transactions')
       .select('user_id,amount,fees,metadata')
