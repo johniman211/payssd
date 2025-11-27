@@ -2,7 +2,9 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
-const User = require('../models/User');
+// const User = require('../models/User');
+const { Users } = require('../services/supabaseRepo');
+const supaAuth = require('../services/supabaseAuth');
 const { auth } = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
@@ -146,13 +148,8 @@ router.post('/register', [
       confirmSouthSudan
     } = req.body;
 
-    // Check if user already exists
-    let existingUser = await User.findOne({ 
-      $or: [
-        { email },
-        { 'profile.phoneNumber': phoneNumber }
-      ]
-    });
+    // Check if user already exists in Supabase
+    let existingUser = await Users.findByEmail(email);
 
     if (existingUser) {
       return res.status(400).json({
@@ -165,29 +162,23 @@ router.post('/register', [
     const emailVerificationToken = crypto.randomBytes(32).toString('hex');
 
     // Create new user
-    const user = new User({
+    // Create Supabase Auth user and profile row
+    const authUser = await supaAuth.createUser(email, password);
+    await Users.create({
+      id: authUser.id,
       email,
-      password,
+      role: 'merchant',
       profile: {
         firstName,
         lastName,
         phoneNumber,
         businessName,
         businessType: businessType || 'individual',
-        address: {
-          city,
-          country: 'South Sudan'
-        }
+        address: { city, country: 'South Sudan' }
       },
-      emailVerificationToken,
-      ipAddress: req.ip,
-      userAgent: req.get('User-Agent')
+      settings: {},
+      emailVerificationToken
     });
-
-    await user.save();
-
-    // Generate API keys for the merchant
-    await user.generateApiKeys();
 
     // Send verification email
     const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${emailVerificationToken}`;
@@ -241,14 +232,7 @@ router.post('/register', [
     }
 
     // Generate JWT token
-    const payload = {
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role
-      }
-    };
-
+    const payload = { user: { id: authUser.id, email: email, role: 'merchant' } };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     res.status(201).json({
@@ -256,12 +240,12 @@ router.post('/register', [
       message: 'Registration successful. Please check your email to verify your account.',
       token,
       user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        profile: user.profile,
-        kyc: user.kyc,
-        isEmailVerified: user.isEmailVerified
+        id: authUser.id,
+        email,
+        role: 'merchant',
+        profile: { firstName, lastName, phoneNumber, businessName, businessType: businessType || 'individual', address: { city, country: 'South Sudan' } },
+        kyc: {},
+        isEmailVerified: false
       }
     });
 
@@ -293,10 +277,11 @@ router.post('/login', authLimiter, [
     }
 
     const { email, password } = req.body;
-
-    // Find user by email
-    const user = await User.findOne({ email });
-    if (!user) {
+    // Sign in via Supabase Auth
+    let authUser;
+    try {
+      authUser = await supaAuth.signIn(email, password);
+    } catch (_) {
       return res.status(400).json({
         success: false,
         message: 'Invalid credentials'
@@ -304,12 +289,12 @@ router.post('/login', authLimiter, [
     }
 
     // During maintenance, allow admins to log in but block others
-    if (settings?.general?.maintenanceMode && user.role !== 'admin') {
+    if (settings?.general?.maintenanceMode && (authUser?.user_metadata?.role || 'merchant') !== 'admin') {
       return res.status(503).json({ success: false, message: 'System maintenance in progress. Login is temporarily disabled.' });
     }
 
-    // Check if account is locked
-    if (user.isLocked) {
+    const dbUser = await Users.getById(authUser.id)
+    if (dbUser?.is_locked) {
       return res.status(423).json({
         success: false,
         message: 'Account is temporarily locked due to too many failed login attempts'
@@ -317,7 +302,7 @@ router.post('/login', authLimiter, [
     }
 
     // Check if account is active
-    if (!user.isActive) {
+    if (dbUser && dbUser.is_active === false) {
       return res.status(403).json({
         success: false,
         message: 'Account has been deactivated. Please contact support.'
@@ -334,26 +319,10 @@ router.post('/login', authLimiter, [
       });
     }
 
-    // Reset login attempts on successful login
-    if (user.loginAttempts > 0) {
-      await user.resetLoginAttempts();
-    }
-
-    // Update last login
-    user.lastLogin = new Date();
-    user.ipAddress = req.ip;
-    user.userAgent = req.get('User-Agent');
-    await user.save();
+    await Users.markLoginMeta(authUser.id, req.ip, req.get('User-Agent'))
 
     // Generate JWT token
-    const payload = {
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role
-      }
-    };
-
+    const payload = { user: { id: authUser.id, email: email, role: dbUser?.role || 'merchant' } };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     res.json({
@@ -361,14 +330,14 @@ router.post('/login', authLimiter, [
       message: 'Login successful',
       token,
       user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        profile: user.profile,
-        kyc: user.kyc,
-        isEmailVerified: user.isEmailVerified,
-        balance: user.balance,
-        lastLogin: user.lastLogin
+        id: authUser.id,
+        email,
+        role: dbUser?.role || 'merchant',
+        profile: dbUser?.profile || {},
+        kyc: dbUser?.kyc || {},
+        isEmailVerified: dbUser?.is_email_verified || false,
+        balance: dbUser?.balance || {},
+        lastLogin: dbUser?.last_login || new Date()
       }
     });
 
@@ -386,7 +355,7 @@ router.post('/login', authLimiter, [
 // @access  Private
 router.get('/me', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('-password');
+    const user = await Users.getById(req.user.id)
     res.json({
       success: true,
       user
@@ -418,17 +387,15 @@ router.post('/verify-email', [
 
     const { token } = req.body;
 
-    const user = await User.findOne({ emailVerificationToken: token });
-    if (!user) {
+    const updated = await Users.updateEmailVerificationByToken(token);
+    if (!updated) {
       return res.status(400).json({
         success: false,
         message: 'Invalid or expired verification token'
       });
     }
 
-    user.isEmailVerified = true;
-    user.emailVerificationToken = undefined;
-    await user.save();
+    try { await supaAuth.confirmEmail(updated.id) } catch (_) {}
 
     // Broadcast real-time update to all connected clients
     const realtimeService = require('../services/realtimeService');
@@ -453,7 +420,7 @@ router.post('/verify-email', [
 // @access  Private
 router.post('/resend-verification', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await Users.getById(req.user.id)
     
     if (!user) {
       return res.status(404).json({
@@ -462,7 +429,7 @@ router.post('/resend-verification', auth, async (req, res) => {
       });
     }
 
-    if (user.isEmailVerified) {
+    if (user.is_email_verified) {
       return res.status(400).json({
         success: false,
         message: 'Email is already verified'
@@ -471,8 +438,10 @@ router.post('/resend-verification', auth, async (req, res) => {
 
     // Generate new verification token
     const emailVerificationToken = crypto.randomBytes(32).toString('hex');
-    user.emailVerificationToken = emailVerificationToken;
-    await user.save();
+    await require('../services/supabaseClient').supabase
+      .from('users')
+      .update({ email_verification_token: emailVerificationToken })
+      .eq('id', req.user.id)
 
     // Send verification email
     const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${emailVerificationToken}`;

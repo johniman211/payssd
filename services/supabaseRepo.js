@@ -19,6 +19,35 @@ const calculatePlatformFee = (amount) => {
 }
 
 const Users = {
+  async findByEmail(email) {
+    ensure()
+    const { data, error } = await supabase
+      .from('users')
+      .select('id,email,role,profile,settings,is_active,is_locked,login_attempts,email_verification_token,is_email_verified')
+      .eq('email', email)
+      .limit(1)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+  async create({ id, email, role = 'merchant', profile, settings, emailVerificationToken }) {
+    ensure()
+    const insert = {
+      id,
+      email,
+      role,
+      profile: profile || {},
+      settings: settings || {},
+      is_active: true,
+      is_locked: false,
+      login_attempts: 0,
+      email_verification_token: emailVerificationToken,
+      is_email_verified: false,
+      created_at: new Date().toISOString()
+    }
+    const { error } = await supabase.from('users').insert(insert)
+    if (error) throw error
+  },
   async getById(id) {
     ensure()
     const { data, error } = await supabase
@@ -35,6 +64,25 @@ const Users = {
     const { error } = await supabase
       .from('users')
       .update({ profile })
+      .eq('id', id)
+    if (error) throw error
+  },
+  async updateEmailVerificationByToken(token) {
+    ensure()
+    const { data, error } = await supabase
+      .from('users')
+      .update({ is_email_verified: true, email_verification_token: null })
+      .eq('email_verification_token', token)
+      .select('id,email')
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+  async markLoginMeta(id, ip, userAgent) {
+    ensure()
+    const { error } = await supabase
+      .from('users')
+      .update({ last_login: new Date().toISOString(), ip_address: ip, user_agent: userAgent, login_attempts: 0 })
       .eq('id', id)
     if (error) throw error
   },
