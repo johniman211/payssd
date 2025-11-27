@@ -68,6 +68,13 @@ const Sidebar = ({ isAdmin = false, isMobileOpen = false, onMobileClose }) => {
       current: location.pathname === '/dashboard/transactions'
     },
     {
+      name: 'Notifications',
+      href: '/dashboard/notifications',
+      icon: ClipboardDocumentListIcon,
+      iconSolid: ClipboardDocumentListIconSolid,
+      current: location.pathname === '/dashboard/notifications'
+    },
+    {
       name: 'Payouts',
       href: '/dashboard/payouts',
       icon: BanknotesIcon,
