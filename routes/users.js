@@ -125,6 +125,26 @@ router.put('/profile', [
     user.updatedAt = new Date();
     await user.save();
 
+    // Dual-write notification preferences to Supabase
+    try {
+      const { supabase } = require('../services/supabaseClient');
+      if (supabase) {
+        const notif = user.settings?.notifications || {};
+        await supabase.from('notification_preferences').upsert({
+          user_id: user._id.toString(),
+          email_enabled: !!notif.emailNotifications,
+          sms_enabled: !!notif.smsNotifications,
+          payment_received_email: !!notif.paymentReceived,
+          payment_failed_email: !!notif.paymentFailed,
+          weekly_reports_email: !!notif.weeklyReports,
+          monthly_reports_email: !!notif.monthlyReports,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+      }
+    } catch (e) {
+      console.log('Supabase preferences upsert skipped:', e.message);
+    }
+
     // Return updated user without sensitive data
     const updatedUser = await User.findById(req.user.id)
       .select('-password -apiKeys.secretKey')
