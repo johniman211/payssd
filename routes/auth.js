@@ -183,7 +183,7 @@ router.post('/register', [
     // Send verification email
     const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${emailVerificationToken}`;
     
-    console.log(`Attempting to send verification email to: ${user.email}`);
+    console.log(`Attempting to send verification email to: ${email}`);
     
     try {
       const emailResult = await transporter.sendMail({
@@ -222,16 +222,17 @@ router.post('/register', [
 
     // Send admin new user notification (non-blocking)
     try {
-      // Basic gating: only send if ADMIN_EMAIL is configured
       if (process.env.ADMIN_EMAIL) {
-        // Fire and forget to avoid delaying registration response
-        sendAdminNewUserEmail(user).catch(err => console.error('Admin new user email failed:', err?.message || err));
+        sendAdminNewUserEmail({ email, firstName, lastName }).catch(err => console.error('Admin new user email failed:', err?.message || err));
       }
     } catch (adminEmailErr) {
       console.error('Error scheduling admin new user email:', adminEmailErr);
     }
 
     // Generate JWT token
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({ success: false, message: 'JWT_SECRET not configured on server' });
+    }
     const payload = { user: { id: authUser.id, email: email, role: 'merchant' } };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
@@ -315,7 +316,12 @@ router.post('/login', authLimiter, [
       return res.status(503).json({ success: false, message: 'System maintenance in progress. Login is temporarily disabled.' });
     }
 
-    const dbUser = await Users.getById(authUser.id)
+    let dbUser = null
+    try {
+      dbUser = await Users.getById(authUser.id)
+    } catch (_) {
+      dbUser = null
+    }
     if (dbUser?.is_locked) {
       return res.status(423).json({
         success: false,
@@ -331,20 +337,17 @@ router.post('/login', authLimiter, [
       });
     }
 
-    // Verify password
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      await user.incLoginAttempts();
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
-    }
+    // Supabase Auth has already verified the password
 
-    await Users.markLoginMeta(authUser.id, req.ip, req.get('User-Agent'))
+    try {
+      await Users.markLoginMeta(authUser.id, req.ip, req.get('User-Agent'))
+    } catch (_) {}
 
     // Generate JWT token
-    const payload = { user: { id: authUser.id, email: email, role: dbUser?.role || 'merchant' } };
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({ success: false, message: 'JWT_SECRET not configured on server' });
+    }
+    const payload = { user: { id: authUser.id, email: email, role: (dbUser?.role || (process.env.ADMIN_EMAIL === email ? 'admin' : 'merchant')) } };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     res.json({
@@ -354,7 +357,7 @@ router.post('/login', authLimiter, [
       user: {
         id: authUser.id,
         email,
-        role: dbUser?.role || 'merchant',
+        role: (dbUser?.role || (process.env.ADMIN_EMAIL === email ? 'admin' : 'merchant')),
         profile: dbUser?.profile || {},
         kyc: dbUser?.kyc || {},
         isEmailVerified: dbUser?.is_email_verified || false,
@@ -364,11 +367,8 @@ router.post('/login', authLimiter, [
     });
 
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error during login'
-    });
+    console.error('Login error:', error?.message || error);
+    res.status(500).json({ success: false, message: error?.message || 'Server error during login' });
   }
 });
 
@@ -460,7 +460,8 @@ router.post('/resend-verification', auth, async (req, res) => {
 
     // Generate new verification token
     const emailVerificationToken = crypto.randomBytes(32).toString('hex');
-    await require('../services/supabaseClient').supabase
+    const { supabase } = require('../services/supabaseRepo')
+    await supabase
       .from('users')
       .update({ email_verification_token: emailVerificationToken })
       .eq('id', req.user.id)
