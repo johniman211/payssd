@@ -681,9 +681,16 @@ const sendAdminPaymentNotificationEmail = async (transaction, merchant) => {
 const sendNotification = async (transaction) => {
   try {
     // Get merchant details
-    const User = require('../models/User');
-    const merchant = await User.findById(transaction.merchant)
-      .select('email profile settings');
+    let merchant = null
+    try {
+      const { Users } = require('./supabaseRepo')
+      merchant = await Users.getById(transaction.merchant || transaction.user_id)
+    } catch (e) {
+      try {
+        const User = require('../models/User')
+        merchant = await User.findById(transaction.merchant).select('email profile settings')
+      } catch (_) {}
+    }
     
     if (!merchant) {
       console.error('Merchant not found for notification');

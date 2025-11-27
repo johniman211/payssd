@@ -329,8 +329,8 @@ router.post('/process', [
     const { linkId, paymentMethod, customer } = req.body;
 
     // Get payment link
-    const paymentLink = await PaymentLink.findOne({ linkId })
-      .populate('merchant', 'profile email balance');
+    const { PaymentLinks, Users, Transactions } = require('../services/supabaseRepo')
+    const paymentLink = await PaymentLinks.getByLinkId(linkId)
     
     if (!paymentLink) {
       return res.status(404).json({
@@ -478,7 +478,7 @@ router.post('/flutterwave/initiate', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Payment link not found' });
     }
 
-    if (!paymentLink.isAccessible()) {
+    if (paymentLink.status && paymentLink.status !== 'active') {
       return res.status(400).json({ success: false, message: 'Payment link is no longer available' });
     }
 
@@ -487,36 +487,22 @@ router.post('/flutterwave/initiate', async (req, res) => {
 
     const tx_ref = 'flw_' + uuidv4().replace(/-/g, '').substring(0, 16);
 
-    const platformFee = Transaction.calculatePlatformFee(amount);
-    const transaction = new Transaction({
-      transactionId: 'txn_' + uuidv4().replace(/-/g, '').substring(0, 16),
-      reference: tx_ref,
-      merchant: paymentLink.merchant._id,
-      merchantEmail: paymentLink.merchant.email,
-      merchantBusinessName: paymentLink.merchant.profile.businessName,
+    const merchantId = paymentLink.merchant_id || paymentLink.merchant?.id
+    const transactionId = 'txn_' + uuidv4().replace(/-/g, '').substring(0, 16)
+    const created = await Transactions.create({
+      user_id: merchantId,
+      tx_ref,
+      transaction_id: transactionId,
+      merchant_id: merchantId,
       amount,
       currency,
       description: paymentLink.description,
-      paymentMethod: 'flutterwave',
+      payment_method: 'flutterwave',
       customer,
-      paymentLink: paymentLink._id,
-      fees: {
-        platformFee,
-        providerFee: 0,
-        totalFees: platformFee
-      },
-      metadata: {
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent'),
-        source: 'payment_link'
-      },
-      redirectUrls: paymentLink.redirectUrls,
-      status: 'pending'
-    });
+      payment_link_id: paymentLink.id
+    })
 
-    await transaction.save();
-
-    const preferUrl = paymentLink.redirectUrls?.success;
+    const preferUrl = paymentLink.redirect_urls?.success || paymentLink.redirectUrls?.success;
     const envFrontend = process.env.CLIENT_URL || process.env.APP_URL;
     const proto = req.get('x-forwarded-proto') || req.protocol || 'https';
     const host = req.get('host');
@@ -564,9 +550,7 @@ router.post('/flutterwave/initiate', async (req, res) => {
       return res.status(500).json({ success: false, message: 'Failed to create payment' });
     }
 
-    transaction.providerResponse = { payment_link: link, flw_tx_ref: tx_ref };
-    transaction.status = 'processing';
-    await transaction.save();
+    await Transactions.updateStatusByRef(tx_ref, 'processing', { providerResponse: { payment_link: link, flw_tx_ref: tx_ref } })
 
     return res.json({ success: true, redirectLink: link, tx_ref });
   } catch (error) {
@@ -587,14 +571,14 @@ router.post('/flutterwave/prepare', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid request' });
     }
 
-    const paymentLink = await PaymentLink.findOne({ linkId })
-      .populate('merchant', 'profile email balance');
+    const { PaymentLinks, Transactions } = require('../services/supabaseRepo')
+    const paymentLink = await PaymentLinks.getByLinkId(linkId)
 
     if (!paymentLink) {
       return res.status(404).json({ success: false, message: 'Payment link not found' });
     }
 
-    if (!paymentLink.isAccessible()) {
+    if (paymentLink.status && paymentLink.status !== 'active') {
       return res.status(400).json({ success: false, message: 'Payment link is no longer available' });
     }
 
@@ -602,34 +586,19 @@ router.post('/flutterwave/prepare', async (req, res) => {
     const currency = paymentLink.currency || 'USD';
     const tx_ref = 'flw_' + uuidv4().replace(/-/g, '').substring(0, 16);
 
-    const platformFee = Transaction.calculatePlatformFee(amount);
-    const transaction = new Transaction({
-      transactionId: 'txn_' + uuidv4().replace(/-/g, '').substring(0, 16),
-      reference: tx_ref,
-      merchant: paymentLink.merchant._id,
-      merchantEmail: paymentLink.merchant.email,
-      merchantBusinessName: paymentLink.merchant.profile.businessName,
+    const merchantId = paymentLink.merchant_id || paymentLink.merchant?.id
+    await Transactions.create({
+      user_id: merchantId,
+      tx_ref,
+      transaction_id: 'txn_' + uuidv4().replace(/-/g, '').substring(0, 16),
+      merchant_id: merchantId,
       amount,
       currency,
       description: paymentLink.description,
-      paymentMethod: 'flutterwave',
+      payment_method: 'flutterwave',
       customer,
-      paymentLink: paymentLink._id,
-      fees: {
-        platformFee,
-        providerFee: 0,
-        totalFees: platformFee
-      },
-      metadata: {
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent'),
-        source: 'payment_link'
-      },
-      redirectUrls: paymentLink.redirectUrls,
-      status: 'pending'
-    });
-
-    await transaction.save();
+      payment_link_id: paymentLink.id
+    })
 
     return res.json({ success: true, tx_ref, amount, currency });
   } catch (error) {
@@ -658,12 +627,23 @@ router.post('/webhook/flutterwave', async (req, res) => {
       return res.status(400).json({ message: 'Missing tx_ref' });
     }
 
-    const transaction = await Transaction.findOne({ reference: tx_ref }).populate('merchant', 'email profile balance apiKeys');
+    const { Users, Transactions: TxRepo } = require('../services/supabaseRepo')
+    const { supabase } = require('../services/supabaseClient')
+    const { data: txRow } = await supabase
+      .from('transactions')
+      .select('user_id,amount,fees,metadata')
+      .eq('reference', tx_ref)
+      .limit(1)
+      .maybeSingle()
+    if (!txRow) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+    const merchant = await Users.getById(txRow.user_id)
     if (!transaction) {
       return res.status(404).json({ message: 'Transaction not found' });
     }
 
-    const oldStatus = transaction.status;
+    const oldStatus = status;
     if (status === 'successful') {
       const methodRaw = String((data?.payment_type || data?.channel || data?.source || '')).toLowerCase();
       if (methodRaw) {
@@ -674,27 +654,15 @@ router.post('/webhook/flutterwave', async (req, res) => {
         else if (methodRaw.includes('momo') || methodRaw.includes('mobile')) method = 'mobilemoney';
         transaction.paymentMethod = method;
       }
-      transaction.status = 'successful';
-      transaction.completedAt = new Date();
-      const merchantReceives = transaction.amount - transaction.fees.totalFees;
-      await User.findByIdAndUpdate(transaction.merchant._id, { $inc: { 'balance.available': merchantReceives } });
-      if (transaction.paymentLink) {
-        const paymentLink = await PaymentLink.findById(transaction.paymentLink);
-        if (paymentLink) await paymentLink.recordPayment(transaction.amount);
-      }
+      await TxRepo.updateStatusByRef(tx_ref, 'successful', { completedAt: new Date().toISOString() })
+      const merchantReceives = txRow.amount - (txRow.fees?.totalFees || 0)
+      await supabase.from('users').update({ balance: { available: (merchant.balance?.available || 0) + merchantReceives } }).eq('id', merchant.id)
+      if (paymentLink) await PaymentLinks.recordPayment(paymentLink.id, txRow.amount)
     } else if (status === 'failed' || status === 'cancelled') {
-      transaction.status = 'failed';
+      await TxRepo.updateStatusByRef(tx_ref, 'failed')
     }
 
-    transaction.providerResponse = {
-      ...transaction.providerResponse,
-      flw_id: flwId,
-      flw_event: event?.event,
-      flw_status: status,
-      lastChecked: new Date()
-    };
-
-    await transaction.save();
+    await TxRepo.updateStatusByRef(tx_ref, status, { providerResponse: { flw_id: flwId, flw_event: event?.event, flw_status: status, lastChecked: new Date().toISOString() } })
 
     if (oldStatus !== transaction.status) {
       await sendNotification(transaction);

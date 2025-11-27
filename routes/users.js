@@ -9,18 +9,12 @@ const router = express.Router();
 // Get current user profile
 router.get('/profile', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id)
-      .select('-password -apiKeys.secretKey')
-      .lean();
-    
+    const { Users } = require('../services/supabaseRepo')
+    const user = await Users.getById(req.user.id)
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-
-    res.json({
-      success: true,
-      user
-    });
+    res.json({ success: true, user })
 
   } catch (error) {
     console.error('Get profile error:', error);
@@ -97,33 +91,32 @@ router.put('/profile', [
       city
     } = req.body;
 
-    const user = await User.findById(req.user.id);
-    if (!user) {
+    const { Users } = require('../services/supabaseRepo')
+    const existing = await Users.getById(req.user.id)
+    if (!existing) {
       return res.status(404).json({ message: 'User not found' });
     }
-
-    // Ensure nested address exists
-    user.profile.address = user.profile.address || {};
+    const profileCurrent = existing.profile || {}
+    profileCurrent.address = profileCurrent.address || {}
 
     // Update profile fields
-    if (firstName !== undefined) user.profile.firstName = firstName;
-    if (lastName !== undefined) user.profile.lastName = lastName;
+    if (firstName !== undefined) profileCurrent.firstName = firstName;
+    if (lastName !== undefined) profileCurrent.lastName = lastName;
     const finalPhone = phoneNumber !== undefined ? phoneNumber : (phone !== undefined ? phone : undefined);
-    if (finalPhone !== undefined) user.profile.phoneNumber = finalPhone;
-    if (businessName !== undefined) user.profile.businessName = businessName;
-    if (businessType !== undefined) user.profile.businessType = businessType;
+    if (finalPhone !== undefined) profileCurrent.phoneNumber = finalPhone;
+    if (businessName !== undefined) profileCurrent.businessName = businessName;
+    if (businessType !== undefined) profileCurrent.businessType = businessType;
     
     // Map either nested address or flat fields
     if (address && typeof address === 'object') {
-      if (address.street !== undefined) user.profile.address.street = address.street;
-      if (address.city !== undefined) user.profile.address.city = address.city;
-      if (address.state !== undefined) user.profile.address.state = address.state;
+      if (address.street !== undefined) profileCurrent.address.street = address.street;
+      if (address.city !== undefined) profileCurrent.address.city = address.city;
+      if (address.state !== undefined) profileCurrent.address.state = address.state;
     }
-    if (city !== undefined) user.profile.address.city = city;
-    if (typeof address === 'string') user.profile.address.street = address;
+    if (city !== undefined) profileCurrent.address.city = city;
+    if (typeof address === 'string') profileCurrent.address.street = address;
 
-    user.updatedAt = new Date();
-    await user.save();
+    await Users.updateProfile(req.user.id, profileCurrent)
 
     // Dual-write notification preferences to Supabase
     try {
@@ -146,9 +139,7 @@ router.put('/profile', [
     }
 
     // Return updated user without sensitive data
-    const updatedUser = await User.findById(req.user.id)
-      .select('-password -apiKeys.secretKey')
-      .lean();
+    const updatedUser = await Users.getById(req.user.id)
 
     res.json({
       success: true,
@@ -165,9 +156,8 @@ router.put('/profile', [
 // Get user settings
 router.get('/settings', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id)
-      .select('settings apiKeys')
-      .lean();
+    const { Users } = require('../services/supabaseRepo')
+    const user = await Users.getSettings(req.user.id)
     
     if (!user) {
       return res.status(404).json({ 
@@ -260,17 +250,16 @@ router.get('/settings', auth, async (req, res) => {
 // Update user settings
 router.put('/settings', [auth], async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
-    if (!user) {
+    const { Users } = require('../services/supabaseRepo')
+    const existing = await Users.getSettings(req.user.id)
+    if (!existing) {
       return res.status(404).json({ message: 'User not found' });
     }
-
-    // Ensure nested structure exists for safe assignments
-    user.settings = user.settings || {};
-    user.settings.notifications = user.settings.notifications || {};
-    user.settings.preferences = user.settings.preferences || {};
-    user.settings.security = user.settings.security || {};
-    user.apiKeys = user.apiKeys || {};
+    const settingsStore = existing.settings || {}
+    settingsStore.notifications = settingsStore.notifications || {}
+    settingsStore.preferences = settingsStore.preferences || {}
+    settingsStore.security = settingsStore.security || {}
+    const apiKeysStore = existing.apiKeys || {}
 
     const { 
       section, 
@@ -287,101 +276,96 @@ router.put('/settings', [auth], async (req, res) => {
       if (section === 'notifications' && settingsData) {
         // Map client notification settings to User model structure
         if (settingsData.emailNotifications !== undefined) {
-          user.settings.notifications.emailNotifications = settingsData.emailNotifications;
+          settingsStore.notifications.emailNotifications = settingsData.emailNotifications;
         }
         if (settingsData.smsNotifications !== undefined) {
-          user.settings.notifications.smsNotifications = settingsData.smsNotifications;
+          settingsStore.notifications.smsNotifications = settingsData.smsNotifications;
         }
         if (settingsData.paymentReceived !== undefined) {
-          user.settings.notifications.paymentReceived = settingsData.paymentReceived;
+          settingsStore.notifications.paymentReceived = settingsData.paymentReceived;
         }
         if (settingsData.paymentFailed !== undefined) {
-          user.settings.notifications.paymentFailed = settingsData.paymentFailed;
+          settingsStore.notifications.paymentFailed = settingsData.paymentFailed;
         }
         if (settingsData.weeklyReports !== undefined) {
-          user.settings.notifications.weeklyReports = settingsData.weeklyReports;
+          settingsStore.notifications.weeklyReports = settingsData.weeklyReports;
         }
         if (settingsData.monthlyReports !== undefined) {
-          user.settings.notifications.monthlyReports = settingsData.monthlyReports;
+          settingsStore.notifications.monthlyReports = settingsData.monthlyReports;
         }
         if (settingsData.securityAlerts !== undefined) {
-          user.settings.notifications.securityAlerts = settingsData.securityAlerts;
+          settingsStore.notifications.securityAlerts = settingsData.securityAlerts;
         }
         if (settingsData.marketingEmails !== undefined) {
-          user.settings.notifications.marketingEmails = settingsData.marketingEmails;
+          settingsStore.notifications.marketingEmails = settingsData.marketingEmails;
         }
         // Backward compatibility
         if (settingsData.email !== undefined) {
-          user.settings.notifications.emailNotifications = settingsData.email;
+          settingsStore.notifications.emailNotifications = settingsData.email;
         }
         if (settingsData.sms !== undefined) {
-          user.settings.notifications.smsNotifications = settingsData.sms;
+          settingsStore.notifications.smsNotifications = settingsData.sms;
         }
       } else if (section === 'preferences' && settingsData) {
         if (settingsData.language !== undefined) {
-          user.settings.preferences.language = settingsData.language;
+          settingsStore.preferences.language = settingsData.language;
         }
         if (settingsData.timezone !== undefined) {
-          user.settings.preferences.timezone = settingsData.timezone;
+          settingsStore.preferences.timezone = settingsData.timezone;
         }
         if (settingsData.currency !== undefined) {
-          user.settings.preferences.currency = settingsData.currency;
+          settingsStore.preferences.currency = settingsData.currency;
         }
         if (settingsData.theme !== undefined) {
-          user.settings.preferences.theme = settingsData.theme;
+          settingsStore.preferences.theme = settingsData.theme;
         }
         if (settingsData.dateFormat !== undefined) {
-          user.settings.preferences.dateFormat = settingsData.dateFormat;
+          settingsStore.preferences.dateFormat = settingsData.dateFormat;
         }
         if (settingsData.numberFormat !== undefined) {
-          user.settings.preferences.numberFormat = settingsData.numberFormat;
+          settingsStore.preferences.numberFormat = settingsData.numberFormat;
         }
       } else if (section === 'security' && settingsData) {
         if (settingsData.twoFactorAuth !== undefined) {
-          user.settings.security.twoFactorAuth = settingsData.twoFactorAuth;
+          settingsStore.security.twoFactorAuth = settingsData.twoFactorAuth;
         }
         if (settingsData.loginNotifications !== undefined) {
-          user.settings.security.loginNotifications = settingsData.loginNotifications;
+          settingsStore.security.loginNotifications = settingsData.loginNotifications;
         }
         if (settingsData.sessionTimeout !== undefined) {
-          user.settings.security.sessionTimeout = settingsData.sessionTimeout;
+          settingsStore.security.sessionTimeout = settingsData.sessionTimeout;
         }
         if (settingsData.allowMultipleSessions !== undefined) {
-          user.settings.security.allowMultipleSessions = settingsData.allowMultipleSessions;
+          settingsStore.security.allowMultipleSessions = settingsData.allowMultipleSessions;
         }
       } else if (section === 'api' && settingsData) {
         if (settingsData.webhookUrl !== undefined) {
-          user.apiKeys.webhookUrl = settingsData.webhookUrl;
+          apiKeysStore.webhookUrl = settingsData.webhookUrl;
         }
         if (settingsData.webhookSecret !== undefined) {
-          user.apiKeys.webhookSecret = settingsData.webhookSecret;
+          apiKeysStore.webhookSecret = settingsData.webhookSecret;
         }
         if (settingsData.apiKeyName !== undefined) {
-          user.apiKeys.apiKeyName = settingsData.apiKeyName;
+          apiKeysStore.apiKeyName = settingsData.apiKeyName;
         }
       }
     } else {
       // Handle direct field updates (legacy format)
       if (notifications) {
-        if (notifications.email !== undefined) user.settings.notifications.emailNotifications = notifications.email;
-        if (notifications.sms !== undefined) user.settings.notifications.smsNotifications = notifications.sms;
+        if (notifications.email !== undefined) settingsStore.notifications.emailNotifications = notifications.email;
+        if (notifications.sms !== undefined) settingsStore.notifications.smsNotifications = notifications.sms;
       }
-      
-      if (language !== undefined) user.settings.preferences.language = language;
-      if (timezone !== undefined) user.settings.preferences.timezone = timezone;
+      if (language !== undefined) settingsStore.preferences.language = language;
+      if (timezone !== undefined) settingsStore.preferences.timezone = timezone;
       if (webhookUrl !== undefined) {
-        user.apiKeys.webhookUrl = webhookUrl;
+        apiKeysStore.webhookUrl = webhookUrl;
       }
     }
 
-    user.updatedAt = new Date();
-    await user.save();
+    const { Users: UsersRepo } = require('../services/supabaseRepo')
+    await UsersRepo.updateSettings(req.user.id, settingsStore, apiKeysStore)
 
-    res.json({
-      success: true,
-      message: 'Settings updated successfully',
-      settings: user.settings
-    });
+    res.json({ success: true, message: 'Settings updated successfully', settings: settingsStore })
 
   } catch (error) {
     console.error('Update settings error:', error);
