@@ -299,4 +299,12 @@ try {
   console.log('Report scheduler not started:', e.message)
 }
 
+// Bootstrap admin account into Supabase if needed
+try {
+  const { bootstrapAdmin } = require('./services/adminBootstrap')
+  bootstrapAdmin()
+} catch (e) {
+  console.log('Admin bootstrap not started:', e.message)
+}
+
 module.exports = app;
