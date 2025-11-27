@@ -281,11 +281,33 @@ router.post('/login', authLimiter, [
     let authUser;
     try {
       authUser = await supaAuth.signIn(email, password);
-    } catch (_) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
+    } catch (e) {
+      const msg = e?.message || '';
+      // Attempt recovery for admin credentials
+      if (process.env.ADMIN_EMAIL === email && process.env.ADMIN_PASSWORD === password) {
+        try {
+          const { bootstrapAdmin } = require('../services/adminBootstrap');
+          await bootstrapAdmin();
+          authUser = await supaAuth.signIn(email, password);
+        } catch (e2) {
+          return res.status(400).json({ success: false, message: e2?.message || 'Invalid credentials' });
+        }
+      } else if (/email/i.test(msg) && /confirm/i.test(msg)) {
+        // If email not confirmed, confirm via admin API then retry
+        try {
+          const dbUser = await Users.findByEmail(email);
+          if (dbUser?.id) {
+            await supaAuth.confirmEmail(dbUser.id);
+            authUser = await supaAuth.signIn(email, password);
+          } else {
+            return res.status(400).json({ success: false, message: 'Email not confirmed. Please check your inbox.' });
+          }
+        } catch (e3) {
+          return res.status(400).json({ success: false, message: e3?.message || 'Invalid credentials' });
+        }
+      } else {
+        return res.status(400).json({ success: false, message: msg || 'Invalid credentials' });
+      }
     }
 
     // During maintenance, allow admins to log in but block others
