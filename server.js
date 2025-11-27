@@ -290,4 +290,13 @@ if (process.env.NODE_ENV !== 'test') {
   }, 60 * 60 * 1000);
 }
 
+// Start simple report scheduler (weekly/monthly)
+try {
+  const { startReportScheduler } = require('./services/reportScheduler')
+  startReportScheduler()
+  console.log('Report scheduler started')
+} catch (e) {
+  console.log('Report scheduler not started:', e.message)
+}
+
 module.exports = app;

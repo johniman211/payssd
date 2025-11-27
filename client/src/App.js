@@ -59,6 +59,7 @@ import PayoutsPage from './pages/dashboard/PayoutsPage';
 import SettingsPage from './pages/dashboard/SettingsPage';
 import KYCPage from './pages/dashboard/KYCPage';
 import ProfilePage from './pages/dashboard/ProfilePage';
+import NotificationsPage from './pages/dashboard/NotificationsPage';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -551,6 +552,16 @@ function App() {
                       <ProtectedRoute merchantOnly>
                         <DashboardLayout>
                           <ProfilePage />
+                        </DashboardLayout>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/dashboard/notifications"
+                    element={
+                      <ProtectedRoute merchantOnly>
+                        <DashboardLayout>
+                          <NotificationsPage />
                         </DashboardLayout>
                       </ProtectedRoute>
                     }
