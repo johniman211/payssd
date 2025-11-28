@@ -220,24 +220,19 @@ const io = new Server(server, {
   transports: ['websocket', 'polling']
 });
 
-// Socket.IO authentication middleware
+// Socket.IO authentication middleware (Supabase)
 io.use(async (socket, next) => {
   try {
     const token = socket.handshake.auth.token;
-    if (!token) {
-      return next(new Error('Authentication token required'));
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const User = require('./models/User');
-    const user = await User.findById(decoded.id).select('-password');
-    
-    if (!user) {
-      return next(new Error('User not found'));
-    }
-
-    socket.userId = user._id.toString();
-    socket.user = user;
+    if (!token) return next(new Error('Authentication token required'));
+    const { getUserFromAccessToken } = require('./services/supabaseAuth');
+    const { Users } = require('./services/supabaseRepo');
+    const authUser = await getUserFromAccessToken(token);
+    if (!authUser) return next(new Error('Invalid authentication token'));
+    let dbUser = null;
+    try { dbUser = await Users.getById(authUser.id) } catch (_) { dbUser = null }
+    socket.userId = authUser.id;
+    socket.user = dbUser || { id: authUser.id, email: authUser.email, role: authUser.user_metadata?.role || 'merchant' };
     next();
   } catch (error) {
     next(new Error('Invalid authentication token'));

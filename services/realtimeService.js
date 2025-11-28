@@ -1,5 +1,5 @@
 const EventEmitter = require('events');
-const User = require('../models/User');
+const { Users } = require('./supabaseRepo');
 
 class RealtimeService extends EventEmitter {
   constructor() {
@@ -41,18 +41,19 @@ class RealtimeService extends EventEmitter {
   // Broadcast user data update to all connected clients
   async broadcastUserUpdate(userId, updateData = null) {
     try {
-      // Fetch fresh user data from database
-      const user = await User.findById(userId).select('-password -apiKeys.secretKey');
+      // Fetch fresh user data from Supabase
+      let user = null
+      try { user = await Users.getById(userId) } catch (_) { user = null }
       if (!user) return;
 
       // Update cache
-      this.userSessions.set(userId, user.toObject());
+      this.userSessions.set(userId, user);
 
       // Broadcast to all connected clients for this user
       if (this.connectedClients.has(userId)) {
         const userData = {
           type: 'USER_UPDATE',
-          user: user.toObject(),
+          user,
           timestamp: new Date().toISOString(),
           ...updateData
         };
@@ -74,9 +75,10 @@ class RealtimeService extends EventEmitter {
       let userData = this.userSessions.get(userId);
       
       if (!userData) {
-        const user = await User.findById(userId).select('-password -apiKeys.secretKey');
+        let user = null
+        try { user = await Users.getById(userId) } catch (_) { user = null }
         if (user) {
-          userData = user.toObject();
+          userData = user;
           this.userSessions.set(userId, userData);
         }
       }
