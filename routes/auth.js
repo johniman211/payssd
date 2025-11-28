@@ -377,11 +377,19 @@ router.post('/login', authLimiter, [
 // @access  Private
 router.get('/me', auth, async (req, res) => {
   try {
-    const user = await Users.getById(req.user.id)
-    res.json({
-      success: true,
-      user
-    });
+    let user = null
+    try { user = await Users.getById(req.user.id) } catch (_) { user = null }
+    if (!user) {
+      user = {
+        id: req.user.id,
+        email: req.user.email,
+        role: req.user.role,
+        profile: req.user.profile || {},
+        kyc: req.user.kyc || {},
+        isEmailVerified: req.user.isEmailVerified || false
+      }
+    }
+    res.json({ success: true, user });
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({
