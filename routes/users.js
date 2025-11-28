@@ -10,9 +10,22 @@ const router = express.Router();
 router.get('/profile', auth, async (req, res) => {
   try {
     const { Users } = require('../services/supabaseRepo')
-    const user = await Users.getById(req.user.id)
+    let user = null
+    try {
+      user = await Users.getById(req.user.id)
+    } catch (_) {
+      user = null
+    }
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      const fallback = {
+        id: req.user.id,
+        email: req.user.email,
+        role: req.user.role,
+        profile: req.user.profile || {},
+        kyc: req.user.kyc || {},
+        isEmailVerified: req.user.isEmailVerified || false
+      }
+      return res.json({ success: true, user: fallback })
     }
     res.json({ success: true, user })
 
