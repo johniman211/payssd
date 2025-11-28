@@ -536,85 +536,83 @@ router.get('/balance', [auth, requireEmailVerification, merchantAuth], async (re
 // Get account statistics (merchant only)
 router.get('/stats', [auth, requireEmailVerification, merchantAuth], async (req, res) => {
   try {
-    const Transaction = require('../models/Transaction');
-    const PaymentLink = require('../models/PaymentLink');
-    const Payout = require('../models/Payout');
-
     const userId = req.user.id;
+    const { Transactions, Payouts, supabase } = require('../services/supabaseRepo')
     const now = new Date();
-    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+    const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // Get transaction statistics
-    const transactionStats = await Transaction.getMerchantStats(userId);
-    
-    // Get this week's transactions
-    const weeklyTransactions = await Transaction.aggregate([
-      {
-        $match: {
-          merchant: req.user.id,
-          createdAt: { $gte: startOfWeek },
-          status: 'successful'
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' }
-        }
-      }
-    ]);
+    // Overview stats from Supabase
+    let transactionStats = { totalTransactions: 0, successfulTransactions: 0, totalAmount: 0, totalFees: 0, averageTransaction: 0, successRate: 0 }
+    try { transactionStats = await Transactions.statsOverview(userId) } catch (_) {}
 
-    // Get this month's transactions
-    const monthlyTransactions = await Transaction.aggregate([
-      {
-        $match: {
-          merchant: req.user.id,
-          createdAt: { $gte: startOfMonth },
-          status: 'successful'
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' }
-        }
-      }
-    ]);
+    // Weekly successful transactions
+    let weeklyCount = 0, weeklyAmount = 0
+    try {
+      const { data: weekRows } = await supabase
+        .from('transactions')
+        .select('amount,status')
+        .eq('user_id', userId)
+        .eq('status','successful')
+        .gte('created_at', startOfWeek.toISOString())
+      weeklyCount = (weekRows||[]).length
+      weeklyAmount = (weekRows||[]).reduce((s,t)=>s+(t.amount||0),0)
+    } catch (_) {}
 
-    // Get payment links count
-    const paymentLinksCount = await PaymentLink.countDocuments({
-      merchant: userId,
-      isActive: true
-    });
+    // Monthly successful transactions
+    let monthlyCount = 0, monthlyAmount = 0
+    try {
+      const { data: monthRows } = await supabase
+        .from('transactions')
+        .select('amount,status')
+        .eq('user_id', userId)
+        .eq('status','successful')
+        .gte('created_at', startOfMonth.toISOString())
+      monthlyCount = (monthRows||[]).length
+      monthlyAmount = (monthRows||[]).reduce((s,t)=>s+(t.amount||0),0)
+    } catch (_) {}
 
-    // Get pending payouts
-    const pendingPayouts = await Payout.aggregate([
-      {
-        $match: {
-          merchant: req.user.id,
-          status: 'pending'
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' }
-        }
-      }
-    ]);
+    // Active payment links count
+    let paymentLinksCount = 0
+    try {
+      const { count } = await supabase
+        .from('payment_links')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('is_active', true)
+      paymentLinksCount = count || 0
+    } catch (_) {}
 
-    // Get recent transactions
-    const recentTransactions = await Transaction.find({
-      merchant: userId
-    })
-    .sort({ createdAt: -1 })
-    .limit(5)
-    .select('transactionId amount currency status customer.name createdAt')
-    .lean();
+    // Pending payouts
+    let pendingCount = 0, pendingAmount = 0
+    try {
+      const { data: pendingRows } = await supabase
+        .from('payouts')
+        .select('amount,status')
+        .eq('user_id', userId)
+        .in('status', ['pending','processing'])
+      pendingCount = (pendingRows||[]).length
+      pendingAmount = (pendingRows||[]).reduce((s,p)=>s+(p.amount||0),0)
+    } catch (_) {}
+
+    // Recent transactions
+    let recentTransactions = []
+    try {
+      const { data: recentRows } = await supabase
+        .from('transactions')
+        .select('transaction_id,amount,currency,status,customer,created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(5)
+      recentTransactions = (recentRows||[]).map(t=>({
+        transactionId: t.transaction_id,
+        amount: t.amount,
+        currency: t.currency,
+        status: t.status,
+        customer: { name: t.customer?.name },
+        createdAt: t.created_at
+      }))
+    } catch (_) {}
 
     const stats = {
       overview: {
@@ -625,29 +623,14 @@ router.get('/stats', [auth, requireEmailVerification, merchantAuth], async (req,
         averageTransaction: transactionStats.averageTransaction || 0,
         successRate: transactionStats.successRate || 0
       },
-      thisWeek: {
-        transactions: weeklyTransactions[0]?.count || 0,
-        amount: weeklyTransactions[0]?.amount || 0
-      },
-      thisMonth: {
-        transactions: monthlyTransactions[0]?.count || 0,
-        amount: monthlyTransactions[0]?.amount || 0
-      },
-      paymentLinks: {
-        active: paymentLinksCount
-      },
-      pendingPayouts: {
-        count: pendingPayouts[0]?.count || 0,
-        amount: pendingPayouts[0]?.amount || 0
-      },
+      thisWeek: { transactions: weeklyCount, amount: weeklyAmount },
+      thisMonth: { transactions: monthlyCount, amount: monthlyAmount },
+      paymentLinks: { active: paymentLinksCount },
+      pendingPayouts: { count: pendingCount, amount: pendingAmount },
       recentTransactions
-    };
+    }
 
-    res.json({
-      success: true,
-      stats
-    });
-
+    res.json({ success: true, stats })
   } catch (error) {
     console.error('Get stats error:', error);
     res.status(500).json({ message: 'Server error' });
