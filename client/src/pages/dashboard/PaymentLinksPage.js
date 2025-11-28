@@ -27,7 +27,10 @@ const PaymentLinksPage = () => {
 
   const fetchPaymentLinks = async () => {
     try {
-      const response = await axios.get('/api/payments/links');
+      const token = TokenStorage.getToken();
+      const response = await axios.get('/api/payments/links', {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
+      });
       setPaymentLinks(response.data.links || []);
     } catch (error) {
       console.error('Error fetching payment links:', error);

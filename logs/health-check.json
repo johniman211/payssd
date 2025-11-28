@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-08-09T18:36:19.732Z",
+  "timestamp": "2025-11-28T08:56:13.594Z",
   "healthy": true,
   "results": [
     {
@@ -7,119 +7,119 @@
       "status": "PASS",
       "message": "MONGODB_URI is set",
       "details": null,
-      "timestamp": "2025-08-09T18:36:17.891Z"
+      "timestamp": "2025-11-28T08:56:10.527Z"
     },
     {
       "service": "ENV",
       "status": "PASS",
       "message": "JWT_SECRET is set",
       "details": null,
-      "timestamp": "2025-08-09T18:36:17.892Z"
+      "timestamp": "2025-11-28T08:56:10.528Z"
     },
     {
       "service": "ENV",
       "status": "PASS",
       "message": "CLIENT_URL is set",
       "details": null,
-      "timestamp": "2025-08-09T18:36:17.892Z"
+      "timestamp": "2025-11-28T08:56:10.528Z"
     },
     {
       "service": "ENV",
       "status": "PASS",
       "message": "PORT is set",
       "details": null,
-      "timestamp": "2025-08-09T18:36:17.892Z"
+      "timestamp": "2025-11-28T08:56:10.528Z"
     },
     {
       "service": "ENV",
       "status": "PASS",
       "message": "EMAIL_USER is configured",
       "details": null,
-      "timestamp": "2025-08-09T18:36:17.892Z"
+      "timestamp": "2025-11-28T08:56:10.528Z"
     },
     {
       "service": "ENV",
       "status": "PASS",
       "message": "EMAIL_PASS is configured",
       "details": null,
-      "timestamp": "2025-08-09T18:36:17.892Z"
+      "timestamp": "2025-11-28T08:56:10.528Z"
     },
     {
       "service": "ENV",
       "status": "PASS",
       "message": "SMS_API_KEY is configured",
       "details": null,
-      "timestamp": "2025-08-09T18:36:17.892Z"
+      "timestamp": "2025-11-28T08:56:10.528Z"
     },
     {
       "service": "ENV",
       "status": "PASS",
       "message": "MTN_API_KEY is configured",
       "details": null,
-      "timestamp": "2025-08-09T18:36:17.892Z"
+      "timestamp": "2025-11-28T08:56:10.528Z"
     },
     {
       "service": "ENV",
       "status": "PASS",
       "message": "DIGICASH_API_KEY is configured",
       "details": null,
-      "timestamp": "2025-08-09T18:36:17.892Z"
+      "timestamp": "2025-11-28T08:56:10.528Z"
     },
     {
       "service": "FILESYSTEM",
       "status": "PASS",
       "message": "Directory uploads exists",
       "details": null,
-      "timestamp": "2025-08-09T18:36:17.893Z"
+      "timestamp": "2025-11-28T08:56:10.529Z"
     },
     {
       "service": "FILESYSTEM",
       "status": "PASS",
       "message": "Directory uploads/kyc exists",
       "details": null,
-      "timestamp": "2025-08-09T18:36:17.893Z"
+      "timestamp": "2025-11-28T08:56:10.529Z"
     },
     {
       "service": "FILESYSTEM",
       "status": "PASS",
       "message": "Directory logs exists",
       "details": null,
-      "timestamp": "2025-08-09T18:36:17.893Z"
+      "timestamp": "2025-11-28T08:56:10.529Z"
     },
     {
       "service": "FILESYSTEM",
       "status": "PASS",
       "message": "File server.js exists",
       "details": null,
-      "timestamp": "2025-08-09T18:36:17.894Z"
+      "timestamp": "2025-11-28T08:56:10.530Z"
     },
     {
       "service": "FILESYSTEM",
       "status": "PASS",
       "message": "File package.json exists",
       "details": null,
-      "timestamp": "2025-08-09T18:36:17.894Z"
+      "timestamp": "2025-11-28T08:56:10.530Z"
     },
     {
       "service": "FILESYSTEM",
       "status": "PASS",
       "message": "File .env exists",
       "details": null,
-      "timestamp": "2025-08-09T18:36:17.894Z"
+      "timestamp": "2025-11-28T08:56:10.530Z"
     },
     {
       "service": "FILESYSTEM",
       "status": "PASS",
       "message": "File ecosystem.config.js exists",
       "details": null,
-      "timestamp": "2025-08-09T18:36:17.894Z"
+      "timestamp": "2025-11-28T08:56:10.530Z"
     },
     {
       "service": "SYSTEM",
       "status": "PASS",
       "message": "File system accessible",
       "details": null,
-      "timestamp": "2025-08-09T18:36:17.895Z"
+      "timestamp": "2025-11-28T08:56:10.531Z"
     },
     {
       "service": "DATABASE",
@@ -131,54 +131,55 @@
           "ok": 1
         }
       },
-      "timestamp": "2025-08-09T18:36:17.961Z"
+      "timestamp": "2025-11-28T08:56:10.682Z"
     },
     {
       "service": "API",
       "status": "PASS",
       "message": "Health check endpoint responding correctly",
       "details": {
-        "url": "http://localhost:3000/api/health",
+        "url": "https://payssd.com/api/health",
         "status": 200,
         "method": "GET"
       },
-      "timestamp": "2025-08-09T18:36:18.025Z"
+      "timestamp": "2025-11-28T08:56:11.447Z"
     },
     {
       "service": "API",
-      "status": "PASS",
-      "message": "User registration responding correctly",
+      "status": "WARN",
+      "message": "User registration unexpected status",
       "details": {
-        "url": "http://localhost:3000/api/auth/register",
-        "status": 400,
+        "url": "https://payssd.com/api/auth/register",
+        "expected": 400,
+        "actual": 403,
         "method": "POST"
       },
-      "timestamp": "2025-08-09T18:36:18.035Z"
+      "timestamp": "2025-11-28T08:56:11.797Z"
     },
     {
       "service": "API",
       "status": "PASS",
       "message": "Protected route responding correctly",
       "details": {
-        "url": "http://localhost:3000/api/users/profile",
+        "url": "https://payssd.com/api/users/profile",
         "status": 401,
         "method": "GET"
       },
-      "timestamp": "2025-08-09T18:36:18.043Z"
+      "timestamp": "2025-11-28T08:56:12.120Z"
     },
     {
       "service": "EXTERNAL",
       "status": "PASS",
       "message": "Google DNS reachable",
       "details": null,
-      "timestamp": "2025-08-09T18:36:18.831Z"
+      "timestamp": "2025-11-28T08:56:12.727Z"
     },
     {
       "service": "EXTERNAL",
       "status": "PASS",
       "message": "Internet Connectivity reachable",
       "details": null,
-      "timestamp": "2025-08-09T18:36:19.713Z"
+      "timestamp": "2025-11-28T08:56:13.583Z"
     }
   ]
 }

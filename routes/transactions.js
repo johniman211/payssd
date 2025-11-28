@@ -1,6 +1,6 @@
 const express = require('express');
 const { query, validationResult } = require('express-validator');
-const { Transactions } = require('../services/supabaseRepo');
+const { Transactions, supabase } = require('../services/supabaseRepo');
 const { auth, merchantAuth, apiKeyAuth } = require('../middleware/auth');
 const router = express.Router();
 
@@ -315,77 +315,61 @@ router.get('/analytics/trends', [merchantApiAuth,
         groupFormat = '%Y-%m-%d';
     }
 
-    // Build match criteria
-    const matchCriteria = {
-      merchant: req.user.id,
-      createdAt: { $gte: startDate },
-      status: 'successful'
+    // Fetch successful transactions from Supabase within period
+    let q = supabase
+      .from('transactions')
+      .select('amount,fees,currency,payment_method,created_at', { count: 'exact' })
+      .eq('user_id', userId)
+      .eq('status', 'successful')
+      .gte('created_at', startDate.toISOString());
+    if (currency) q = q.eq('currency', currency);
+    const { data: rows, error } = await q;
+    if (error) throw error;
+
+    // Group by date (day or month)
+    const fmtDate = (iso) => {
+      const d = new Date(iso);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return groupFormat === '%Y-%m' ? `${y}-${m}` : `${y}-${m}-${day}`;
     };
 
-    if (currency) {
-      matchCriteria.currency = currency;
-    }
+    const byDate = {};
+    const pmByDate = {};
+    (rows || []).forEach(r => {
+      const key = fmtDate(r.created_at);
+      const currencyKey = r.currency;
+      byDate[key] = byDate[key] || { currencies: {}, totalCount: 0, totalAmount: 0, totalFees: 0 };
+      const cur = byDate[key].currencies[currencyKey] || { currency: currencyKey, count: 0, amount: 0, fees: 0 };
+      cur.count += 1;
+      cur.amount += (r.amount || 0);
+      cur.fees += (r.fees?.total || r.fees?.totalFees || 0);
+      byDate[key].currencies[currencyKey] = cur;
+      byDate[key].totalCount += 1;
+      byDate[key].totalAmount += (r.amount || 0);
+      byDate[key].totalFees += (r.fees?.total || r.fees?.totalFees || 0);
 
-    // Get daily/monthly trends
-    const trends = await Transaction.aggregate([
-      { $match: matchCriteria },
-      {
-        $group: {
-          _id: {
-            date: { $dateToString: { format: groupFormat, date: '$createdAt' } },
-            currency: '$currency'
-          },
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' },
-          fees: { $sum: '$fees.total' }
-        }
-      },
-      {
-        $group: {
-          _id: '$_id.date',
-          currencies: {
-            $push: {
-              currency: '$_id.currency',
-              count: '$count',
-              amount: '$amount',
-              fees: '$fees'
-            }
-          },
-          totalCount: { $sum: '$count' },
-          totalAmount: { $sum: '$amount' },
-          totalFees: { $sum: '$fees' }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ]);
+      pmByDate[key] = pmByDate[key] || {};
+      const methodKey = r.payment_method;
+      const pm = pmByDate[key][methodKey] || { method: methodKey, count: 0, amount: 0 };
+      pm.count += 1;
+      pm.amount += (r.amount || 0);
+      pmByDate[key][methodKey] = pm;
+    });
 
-    // Get payment method trends
-    const paymentMethodTrends = await Transaction.aggregate([
-      { $match: matchCriteria },
-      {
-        $group: {
-          _id: {
-            date: { $dateToString: { format: groupFormat, date: '$createdAt' } },
-            paymentMethod: '$paymentMethod'
-          },
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' }
-        }
-      },
-      {
-        $group: {
-          _id: '$_id.date',
-          methods: {
-            $push: {
-              method: '$_id.paymentMethod',
-              count: '$count',
-              amount: '$amount'
-            }
-          }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ]);
+    const trends = Object.keys(byDate).sort().map(dateKey => ({
+      _id: dateKey,
+      currencies: Object.values(byDate[dateKey].currencies),
+      totalCount: byDate[dateKey].totalCount,
+      totalAmount: byDate[dateKey].totalAmount,
+      totalFees: byDate[dateKey].totalFees
+    }));
+
+    const paymentMethodTrends = Object.keys(pmByDate).sort().map(dateKey => ({
+      _id: dateKey,
+      methods: Object.values(pmByDate[dateKey])
+    }));
 
     res.json({
       success: true,

@@ -548,7 +548,7 @@ router.post('/calculate-fees', [
     const { amount, currency, method } = req.body;
 
     // Calculate processing fee
-    const processingFee = Payout.calculateProcessingFee(amount, method);
+    const processingFee = Payouts.calculateProcessingFee(amount, method);
     const netAmount = amount - processingFee;
 
     res.json({

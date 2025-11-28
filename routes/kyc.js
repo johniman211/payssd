@@ -103,7 +103,8 @@ router.post('/submit', auth, requireEmailVerification, merchantAuth, upload.fiel
     }
 
     // Get current user first to check existing KYC data
-    const user = await User.findById(req.user.id);
+    const { Users } = require('../services/supabaseRepo')
+    const user = await Users.getById(req.user.id)
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -112,8 +113,9 @@ router.post('/submit', auth, requireEmailVerification, merchantAuth, upload.fiel
     }
 
     // Check if ID document is required (only if user doesn't have existing ID document)
+    const currentDocs = (user.kyc && user.kyc.documents) || {}
     if (!files || !files.idDocument) {
-      if (!user.kyc.documents.idDocument) {
+      if (!currentDocs.idDocument) {
         console.log('KYC submission failed - ID document missing for new submission');
         return res.status(400).json({
           success: false,
@@ -124,7 +126,7 @@ router.post('/submit', auth, requireEmailVerification, merchantAuth, upload.fiel
     }
 
     // Check if KYC is already approved
-    if (user.kyc.status === 'approved') {
+    if ((user.kyc && user.kyc.status) === 'approved') {
       return res.status(400).json({
         success: false,
         message: 'KYC is already approved'
@@ -132,64 +134,72 @@ router.post('/submit', auth, requireEmailVerification, merchantAuth, upload.fiel
     }
 
     // Update KYC information
-    user.kyc.documents.idType = idType;
-    user.kyc.documents.idNumber = idNumber;
+    const newDocs = { ...currentDocs };
+    newDocs.idType = idType;
+    newDocs.idNumber = idNumber;
     
     // Only update ID document if a new one is provided
     if (files && files.idDocument) {
       // Clean up old ID document if it exists
-      if (user.kyc.documents.idDocument) {
-        const oldPath = path.join(__dirname, '../uploads/kyc', path.basename(user.kyc.documents.idDocument));
+      if (currentDocs.idDocument) {
+        const oldPath = path.join(__dirname, '../uploads/kyc', path.basename(currentDocs.idDocument));
         fs.unlink(oldPath, () => {});
       }
-      user.kyc.documents.idDocument = files.idDocument[0].filename;
+      newDocs.idDocument = files.idDocument[0].filename;
     }
     
     // Only update business license if a new one is provided
     if (files && files.businessLicense) {
       // Clean up old business license if it exists
-      if (user.kyc.documents.businessLicense) {
-        const oldPath = path.join(__dirname, '../uploads/kyc', path.basename(user.kyc.documents.businessLicense));
+      if (currentDocs.businessLicense) {
+        const oldPath = path.join(__dirname, '../uploads/kyc', path.basename(currentDocs.businessLicense));
         fs.unlink(oldPath, () => {});
       }
-      user.kyc.documents.businessLicense = files.businessLicense[0].filename;
+      newDocs.businessLicense = files.businessLicense[0].filename;
     }
     
     // Only update proof of address if a new one is provided
     if (files && files.proofOfAddress) {
       // Clean up old proof of address if it exists
-      if (user.kyc.documents.proofOfAddress) {
-        const oldPath = path.join(__dirname, '../uploads/kyc', path.basename(user.kyc.documents.proofOfAddress));
+      if (currentDocs.proofOfAddress) {
+        const oldPath = path.join(__dirname, '../uploads/kyc', path.basename(currentDocs.proofOfAddress));
         fs.unlink(oldPath, () => {});
       }
-      user.kyc.documents.proofOfAddress = files.proofOfAddress[0].filename;
+      newDocs.proofOfAddress = files.proofOfAddress[0].filename;
     }
 
     // Update business name if provided
-    if (businessName) {
-      user.profile.businessName = businessName;
-    }
+    const newProfile = { ...(user.profile || {}) };
+    if (businessName) newProfile.businessName = businessName;
 
-    // Set KYC status to pending
-    user.kyc.status = 'pending';
-    user.kyc.submittedAt = new Date();
-    user.kyc.reviewedAt = undefined;
-    user.kyc.reviewedBy = undefined;
-    user.kyc.rejectionReason = undefined;
+    // Set KYC status to pending and persist to Supabase
+    const newKyc = {
+      ...(user.kyc || {}),
+      status: 'pending',
+      submittedAt: new Date(),
+      reviewedAt: null,
+      reviewedBy: null,
+      rejectionReason: null,
+      documents: newDocs
+    };
 
-    await user.save();
+    const { supabase } = require('../services/supabaseRepo')
+    await supabase
+      .from('users')
+      .update({ kyc: newKyc, profile: newProfile })
+      .eq('id', req.user.id)
 
     res.json({
       success: true,
       message: 'KYC documents submitted successfully. Your application is under review.',
       kyc: {
-        status: user.kyc.status,
-        submittedAt: user.kyc.submittedAt,
+        status: newKyc.status,
+        submittedAt: newKyc.submittedAt,
         documents: {
-          idType: user.kyc.documents.idType,
-          hasIdDocument: !!user.kyc.documents.idDocument,
-          hasBusinessLicense: !!user.kyc.documents.businessLicense,
-          hasProofOfAddress: !!user.kyc.documents.proofOfAddress
+          idType: newDocs.idType,
+          hasIdDocument: !!newDocs.idDocument,
+          hasBusinessLicense: !!newDocs.businessLicense,
+          hasProofOfAddress: !!newDocs.proofOfAddress
         }
       }
     });

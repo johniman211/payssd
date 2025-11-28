@@ -3,6 +3,7 @@ const { body, validationResult } = require('express-validator');
 const { v4: uuidv4 } = require('uuid');
 const Transaction = require('../models/Transaction');
 const PaymentLink = require('../models/PaymentLink');
+const { supabase } = require('../services/supabaseRepo');
 const User = require('../models/User');
 const { auth, merchantAuth, kycVerified, apiKeyAuth, optionalAuth } = require('../middleware/auth');
 const { requireEmailVerification } = require('../middleware/emailVerification');
@@ -186,41 +187,41 @@ router.get('/links', [merchantApiAuth], async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const status = req.query.status;
-    const skip = (page - 1) * limit;
 
-    const filter = { merchant: req.user.id };
-    if (status) {
-      filter.status = status;
-    }
+    let q = supabase
+      .from('payment_links')
+      .select('id,link_id,title,description,amount,currency,is_active,status,analytics,expires_at,created_at', { count: 'exact' })
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .range((page - 1) * limit, (page - 1) * limit + (limit - 1));
+    if (status) q = q.eq('status', status);
+    const { data, error, count } = await q;
+    if (error) throw error;
 
-    const links = await PaymentLink.find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .select('-__v');
-
-    const total = await PaymentLink.countDocuments(filter);
+    const baseUrl = process.env.APP_URL || 'http://localhost:5000';
+    const links = (data || []).map(link => ({
+      id: link.id,
+      linkId: link.link_id,
+      title: link.title,
+      description: link.description,
+      amount: link.amount,
+      currency: link.currency,
+      fullUrl: `${baseUrl}/pay/${link.link_id}`,
+      shortUrl: `payssd.ss/p/${link.link_id}`,
+      status: link.status,
+      isActive: !!link.is_active,
+      analytics: link.analytics || {},
+      expiresAt: link.expires_at,
+      createdAt: link.created_at
+    }));
 
     res.json({
       success: true,
-      links: links.map(link => ({
-        id: link._id,
-        linkId: link.linkId,
-        title: link.title,
-        description: link.description,
-        amount: link.amount,
-        currency: link.currency,
-        fullUrl: link.fullUrl,
-        status: link.status,
-        isActive: link.isActive,
-        analytics: link.analytics,
-        expiresAt: link.expiresAt,
-        createdAt: link.createdAt
-      })),
+      links,
       pagination: {
         current: page,
-        pages: Math.ceil(total / limit),
-        total
+        pages: Math.ceil((count || 0) / limit),
+        total: count || 0
       }
     });
 

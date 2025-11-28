@@ -8,7 +8,7 @@ const NotificationsPage = () => {
   const [loading, setLoading] = useState(true)
 
   const fetchNotifications = async () => {
-    if (!supabase || !user) return
+    if (!supabase || !user) { setLoading(false); return }
     const userId = user?._id || user?.id
     const { data, error } = await supabase
       .from('notifications')
