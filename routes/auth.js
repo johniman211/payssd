@@ -280,8 +280,11 @@ router.post('/login', authLimiter, [
     const { email, password } = req.body;
     // Sign in via Supabase Auth
     let authUser;
+    let session;
     try {
-      authUser = await supaAuth.signIn(email, password);
+      const result = await supaAuth.signIn(email, password);
+      authUser = result.user;
+      session = result.session;
     } catch (e) {
       const msg = e?.message || '';
       // Attempt recovery for admin credentials
@@ -289,7 +292,8 @@ router.post('/login', authLimiter, [
         try {
           const { bootstrapAdmin } = require('../services/adminBootstrap');
           await bootstrapAdmin();
-          authUser = await supaAuth.signIn(email, password);
+          const r2 = await supaAuth.signIn(email, password);
+          authUser = r2.user; session = r2.session;
         } catch (e2) {
           return res.status(400).json({ success: false, message: e2?.message || 'Invalid credentials' });
         }
@@ -299,7 +303,8 @@ router.post('/login', authLimiter, [
           const dbUser = await Users.findByEmail(email);
           if (dbUser?.id) {
             await supaAuth.confirmEmail(dbUser.id);
-            authUser = await supaAuth.signIn(email, password);
+            const r3 = await supaAuth.signIn(email, password);
+            authUser = r3.user; session = r3.session;
           } else {
             return res.status(400).json({ success: false, message: 'Email not confirmed. Please check your inbox.' });
           }
@@ -343,12 +348,11 @@ router.post('/login', authLimiter, [
       await Users.markLoginMeta(authUser.id, req.ip, req.get('User-Agent'))
     } catch (_) {}
 
-    // Generate JWT token
-    if (!process.env.JWT_SECRET) {
-      return res.status(500).json({ success: false, message: 'JWT_SECRET not configured on server' });
+    // Use Supabase access token for client
+    const token = session?.access_token;
+    if (!token) {
+      return res.status(500).json({ success: false, message: 'Login failed: missing Supabase session token' });
     }
-    const payload = { user: { id: authUser.id, email: email, role: (dbUser?.role || (process.env.ADMIN_EMAIL === email ? 'admin' : 'merchant')) } };
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     res.json({
       success: true,
@@ -360,7 +364,7 @@ router.post('/login', authLimiter, [
         role: (dbUser?.role || (process.env.ADMIN_EMAIL === email ? 'admin' : 'merchant')),
         profile: dbUser?.profile || {},
         kyc: dbUser?.kyc || {},
-        isEmailVerified: dbUser?.is_email_verified || false,
+        isEmailVerified: Boolean(authUser?.email_confirmed_at || dbUser?.is_email_verified),
         balance: dbUser?.balance || {},
         lastLogin: dbUser?.last_login || new Date()
       }

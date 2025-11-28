@@ -32,7 +32,7 @@ const signIn = async (email, password) => {
   ensurePublic()
   const { data, error } = await publicClient.auth.signInWithPassword({ email, password })
   if (error) throw error
-  return data.user
+  return data // { user, session }
 }
 
 const confirmEmail = async (userId) => {
