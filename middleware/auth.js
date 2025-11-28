@@ -32,12 +32,7 @@ const auth = async (req, res, next) => {
     const isLocked = user ? user.is_locked === true : false
     const emailVerified = Boolean(authUser.email_confirmed_at || user?.is_email_verified)
     
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
+    // Allow requests to proceed even if profile row is missing
 
     // Check if user is active
     if (!isActive) {
@@ -57,11 +52,11 @@ const auth = async (req, res, next) => {
 
     // Add user to request object
     req.user = {
-      id: user.id,
-      email: user.email || authUser.email,
-      role: user.role || authUser.user_metadata?.role || (process.env.ADMIN_EMAIL === authUser.email ? 'admin' : 'merchant'),
-      profile: user.profile || {},
-      kyc: user.kyc || {},
+      id: (user?.id || authUser.id),
+      email: (user?.email || authUser.email),
+      role: (user?.role || authUser.user_metadata?.role || (process.env.ADMIN_EMAIL === authUser.email ? 'admin' : 'merchant')),
+      profile: user?.profile || {},
+      kyc: user?.kyc || {},
       isEmailVerified: emailVerified
     };
     
@@ -138,7 +133,9 @@ const optionalAuth = async (req, res, next) => {
     let user = null
     try { user = await Users.getById(authUser.id) } catch (_) { user = null }
     
-    if (user && user.isActive && !user.isLocked) {
+    const isActive = user ? user.is_active !== false : true
+    const isLocked = user ? user.is_locked === true : false
+    if (!isLocked && isActive) {
       req.user = {
         id: user?.id || authUser.id,
         email: user?.email || authUser.email,
