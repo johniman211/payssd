@@ -1,5 +1,5 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const { Users, supabase } = require('../services/supabaseRepo');
+const { getUserFromAccessToken } = require('../services/supabaseAuth');
 
 // Authentication middleware
 const auth = async (req, res, next) => {
@@ -19,21 +19,28 @@ const auth = async (req, res, next) => {
       });
     }
 
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Get user from database
-    const user = await User.findById(decoded.user.id).select('-password');
+    // Verify token with Supabase
+    const authUser = await getUserFromAccessToken(token);
+    if (!authUser) {
+      return res.status(401).json({ success: false, message: 'Invalid token' });
+    }
+    // Get user profile from Supabase DB
+    let user = null
+    try { user = await Users.getById(authUser.id) } catch (_) { user = null }
+    // Compose request user
+    const isActive = user ? user.is_active !== false : true
+    const isLocked = user ? user.is_locked === true : false
+    const emailVerified = Boolean(authUser.email_confirmed_at || user?.is_email_verified)
     
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'Token is not valid - user not found'
+        message: 'User not found'
       });
     }
 
     // Check if user is active
-    if (!user.isActive) {
+    if (!isActive) {
       return res.status(403).json({
         success: false,
         message: 'Account has been deactivated'
@@ -41,7 +48,7 @@ const auth = async (req, res, next) => {
     }
 
     // Check if account is locked
-    if (user.isLocked) {
+    if (isLocked) {
       return res.status(423).json({
         success: false,
         message: 'Account is temporarily locked'
@@ -50,30 +57,20 @@ const auth = async (req, res, next) => {
 
     // Add user to request object
     req.user = {
-      id: user._id,
-      email: user.email,
-      role: user.role,
-      profile: user.profile,
-      kyc: user.kyc,
-      isEmailVerified: user.isEmailVerified
+      id: user.id,
+      email: user.email || authUser.email,
+      role: user.role || authUser.user_metadata?.role || (process.env.ADMIN_EMAIL === authUser.email ? 'admin' : 'merchant'),
+      profile: user.profile || {},
+      kyc: user.kyc || {},
+      isEmailVerified: emailVerified
     };
     
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
     
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid token'
-      });
-    }
-    
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({
-        success: false,
-        message: 'Token has expired'
-      });
+    if (String(error?.message || '').includes('JWT') || String(error?.message || '').includes('token')) {
+      return res.status(401).json({ success: false, message: 'Invalid token' });
     }
     
     res.status(500).json({
@@ -137,17 +134,18 @@ const optionalAuth = async (req, res, next) => {
       return next();
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.user.id).select('-password');
+    const authUser = await getUserFromAccessToken(token);
+    let user = null
+    try { user = await Users.getById(authUser.id) } catch (_) { user = null }
     
     if (user && user.isActive && !user.isLocked) {
       req.user = {
-        id: user._id,
-        email: user.email,
-        role: user.role,
-        profile: user.profile,
-        kyc: user.kyc,
-        isEmailVerified: user.isEmailVerified
+        id: user?.id || authUser.id,
+        email: user?.email || authUser.email,
+        role: user?.role || authUser.user_metadata?.role || 'merchant',
+        profile: user?.profile || {},
+        kyc: user?.kyc || {},
+        isEmailVerified: Boolean(authUser.email_confirmed_at || user?.is_email_verified)
       };
     }
     
@@ -181,13 +179,13 @@ const apiKeyAuth = async (req, res, next) => {
       });
     }
 
-    // Find user by API key
-    const user = await User.findOne({
-      $or: [
-        { 'apiKeys.publicKey': apiKey },
-        { 'apiKeys.secretKey': apiKey }
-      ]
-    }).select('-password');
+    // Find user by API key in Supabase
+    const { data: user } = await supabase
+      .from('users')
+      .select('*')
+      .or(`apiKeys->>publicKey.eq.${apiKey},apiKeys->>secretKey.eq.${apiKey}`)
+      .limit(1)
+      .maybeSingle()
     
     if (!user) {
       return res.status(401).json({
@@ -197,14 +195,14 @@ const apiKeyAuth = async (req, res, next) => {
     }
 
     // Check if user is active and KYC approved
-    if (!user.isActive) {
+    if (user.is_active === false) {
       return res.status(403).json({
         success: false,
         message: 'Account deactivated'
       });
     }
 
-    if (user.kyc.status !== 'approved') {
+    if ((user.kyc?.status || 'pending') !== 'approved') {
       return res.status(403).json({
         success: false,
         message: 'KYC verification required'
@@ -213,11 +211,11 @@ const apiKeyAuth = async (req, res, next) => {
 
     // Add user and API key type to request
     req.user = {
-      id: user._id,
+      id: user.id,
       email: user.email,
       role: user.role,
-      profile: user.profile,
-      kyc: user.kyc
+      profile: user.profile || {},
+      kyc: user.kyc || {}
     };
     
     req.apiKeyType = isPublicKey ? 'public' : 'secret';

@@ -9,7 +9,7 @@ const { auth } = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
-const { sendAdminNewUserEmail } = require('../services/notificationService');
+  const { sendAdminNewUserEmail } = require('../services/notificationService');
 
 const router = express.Router();
 const { getSettings } = require('../services/settingsStore');
@@ -429,7 +429,7 @@ router.post('/verify-email', [
 
     // Broadcast real-time update to all connected clients
     const realtimeService = require('../services/realtimeService');
-    await realtimeService.broadcastEmailVerification(user._id.toString(), true);
+    await realtimeService.broadcastEmailVerification(String(updated.id), true);
 
     res.json({
       success: true,
@@ -544,22 +544,19 @@ router.post('/forgot-password', authLimiter, [
 
     const { email } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      // Don't reveal if email exists or not
-      return res.json({
-        success: true,
-        message: 'If an account with that email exists, a password reset link has been sent.'
-      });
-    }
-
-    // Generate reset token
+    // Find user in Supabase
+    let dbUser = null
+    try { dbUser = await Users.findByEmail(email) } catch (_) { dbUser = null }
+    // Always respond success (do not reveal existence)
     const resetToken = crypto.randomBytes(32).toString('hex');
-    user.passwordResetToken = resetToken;
-    user.passwordResetExpires = Date.now() + 3600000; // 1 hour
-    await user.save();
-
-    // Send reset email
+    const expiresAt = new Date(Date.now() + 3600000).toISOString();
+    if (dbUser?.id) {
+      const { supabase } = require('../services/supabaseRepo')
+      await supabase
+        .from('users')
+        .update({ password_reset_token: resetToken, password_reset_expires: expiresAt })
+        .eq('id', dbUser.id)
+    }
     const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
     
     try {
@@ -570,7 +567,7 @@ router.post('/forgot-password', authLimiter, [
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #2563eb;">Password Reset Request</h2>
-            <p>Hello ${user.profile.firstName},</p>
+            <p>Hello,</p>
             <p>You requested a password reset for your PaySSD account.</p>
             <p>Click the button below to reset your password:</p>
             <a href="${resetUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin: 20px 0;">Reset Password</a>
@@ -622,23 +619,26 @@ router.post('/reset-password', [
     }
 
     const { token, password } = req.body;
-
-    const user = await User.findOne({
-      passwordResetToken: token,
-      passwordResetExpires: { $gt: Date.now() }
-    });
-
-    if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid or expired reset token'
-      });
+    const { supabase } = require('../services/supabaseRepo')
+    const { data: row } = await supabase
+      .from('users')
+      .select('id,password_reset_expires')
+      .eq('password_reset_token', token)
+      .limit(1)
+      .maybeSingle()
+    if (!row) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired reset token' })
     }
-
-    user.password = password;
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
-    await user.save();
+    const exp = row.password_reset_expires ? new Date(row.password_reset_expires).getTime() : 0
+    if (!exp || exp < Date.now()) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired reset token' })
+    }
+    const { adminUpdatePassword } = require('../services/supabaseAuth')
+    await adminUpdatePassword(row.id, password)
+    await supabase
+      .from('users')
+      .update({ password_reset_token: null, password_reset_expires: null })
+      .eq('id', row.id)
 
     res.json({
       success: true,
