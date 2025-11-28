@@ -6,6 +6,75 @@ const { sendKYCApprovedEmail, sendKYCRejectedEmail, sendAdminNewUserEmail, sendA
 const { getSettings, updateSettings } = require('../services/settingsStore');
 const router = express.Router();
 
+// Admin dashboard stats (plain payload for AdminDashboard)
+router.get('/stats', [auth, adminAuth], async (req, res) => {
+  try {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+    const { count: totalUsers } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'merchant');
+    const { count: activeUsers } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'merchant').eq('is_active', true);
+    const { count: newThisMonth } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'merchant').gte('created_at', startOfMonth.toISOString());
+    const { count: lastMonthUsers } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'merchant').gte('created_at', lastMonth.toISOString()).lt('created_at', startOfMonth.toISOString());
+
+    const { count: totalTransactions } = await supabase.from('transactions').select('id', { count: 'exact', head: true });
+    const { count: successfulTransactions } = await supabase.from('transactions').select('id', { count: 'exact', head: true }).eq('status', 'successful');
+    const { count: failedTransactions } = await supabase.from('transactions').select('id', { count: 'exact', head: true }).eq('status', 'failed');
+    const { count: pendingTransactions } = await supabase.from('transactions').select('id', { count: 'exact', head: true }).eq('status', 'pending');
+
+    const { data: totalRows } = await supabase.from('transactions').select('amount').eq('status', 'successful');
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const { data: todayRows } = await supabase.from('transactions').select('amount').eq('status', 'successful').gte('created_at', todayStart.toISOString());
+    const { data: monthRows } = await supabase.from('transactions').select('amount').eq('status', 'successful').gte('created_at', startOfMonth.toISOString());
+    const { data: lastMonthRows } = await supabase.from('transactions').select('amount').eq('status', 'successful').gte('created_at', lastMonth.toISOString()).lt('created_at', startOfMonth.toISOString());
+
+    const sum = (arr) => (arr || []).reduce((s, r) => s + (r.amount || 0), 0);
+    const totalAmount = sum(totalRows);
+    const todayAmount = sum(todayRows);
+    const thisMonth = sum(monthRows);
+    const lastMonthAmount = sum(lastMonthRows);
+
+    const userGrowth = lastMonthUsers > 0 ? ((newThisMonth - lastMonthUsers) / lastMonthUsers * 100) : 0;
+    const revenueGrowth = lastMonthAmount > 0 ? ((thisMonth - lastMonthAmount) / lastMonthAmount * 100) : 0;
+
+    const stats = {
+      users: {
+        total: totalUsers || 0,
+        active: activeUsers || 0,
+        pendingKyc: (await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'merchant').eq('kyc->>status', 'pending')).count || 0,
+        newThisMonth: newThisMonth || 0,
+        growth: userGrowth
+      },
+      transactions: {
+        total: totalTransactions || 0,
+        successful: successfulTransactions || 0,
+        failed: failedTransactions || 0,
+        pending: pendingTransactions || 0,
+        totalAmount,
+        todayAmount,
+        growth: 0
+      },
+      revenue: {
+        total: totalAmount,
+        thisMonth,
+        lastMonth: lastMonthAmount,
+        growth: revenueGrowth
+      },
+      kyc: {
+        pending: (await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'merchant').eq('kyc->>status', 'pending')).count || 0,
+        approved: (await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'merchant').eq('kyc->>status', 'approved')).count || 0,
+        rejected: (await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'merchant').eq('kyc->>status', 'rejected')).count || 0,
+        total: (await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'merchant').not('kyc->>status', 'is', 'null')).count || 0
+      }
+    };
+
+    res.json(stats);
+  } catch (error) {
+    console.error('Get admin stats error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 // Get dashboard statistics
 router.get('/stats', [auth, adminAuth], async (req, res) => {
   try {
@@ -97,9 +166,9 @@ router.get('/recent-activity', [auth, adminAuth], async (req, res) => {
     
     (recentUsers || []).forEach(user => {
       activities.push({
-        type: 'user_registration',
-        message: `New user registered: ${user.profile.firstName} ${user.profile.lastName}`,
-        timestamp: user.created_at,
+        type: 'user_registered',
+        description: `New user registered: ${user?.profile?.firstName || ''} ${user?.profile?.lastName || ''}`.trim(),
+        createdAt: user.created_at,
         user: user.email
       });
     });
@@ -119,16 +188,17 @@ router.get('/recent-activity', [auth, adminAuth], async (req, res) => {
     }
     
     (recentTransactions || []).forEach(transaction => {
+      const type = transaction.status === 'successful' ? 'payment_received' : (transaction.status === 'failed' ? 'payment_failed' : 'transaction');
       activities.push({
-        type: 'transaction',
-        message: `Transaction ${transaction.status}: USD ${transaction.amount}`,
-        timestamp: transaction.created_at,
+        type,
+        description: `Transaction ${transaction.status}: USD ${transaction.amount}`,
+        createdAt: transaction.created_at,
         user: userEmails[transaction.user_id] || ''
       });
     });
 
     // Sort all activities by timestamp
-    activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    activities.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     
     res.json(activities.slice(0, 10));
   } catch (error) {
@@ -150,15 +220,12 @@ router.get('/pending-kyc', [auth, adminAuth], async (req, res) => {
     if (error) throw error
 
     const pendingKyc = (data || []).map(u => ({
-      email: u.email,
-      profile: {
-        firstName: u?.profile?.firstName || '',
-        lastName: u?.profile?.lastName || ''
-      },
-      kyc: {
-        submittedAt: u?.kyc?.submittedAt || null,
-        documents: u?.kyc?.documents || {}
-      }
+      id: u.email,
+      firstName: u?.profile?.firstName || '',
+      lastName: u?.profile?.lastName || '',
+      businessName: u?.profile?.businessName || '',
+      status: u?.kyc?.status || 'pending',
+      submittedAt: u?.kyc?.submittedAt || u.created_at
     }))
 
     res.json(pendingKyc)
@@ -193,19 +260,17 @@ router.get('/recent-transactions', [auth, adminAuth], async (req, res) => {
     }
 
     const recentTransactions = (txs || []).map(t => ({
+      id: t.reference || null,
       amount: t.amount,
       status: t.status,
       paymentMethod: t.payment_method,
       createdAt: t.created_at,
-      reference: t.reference,
       merchant: usersById[t.user_id]
         ? {
             email: usersById[t.user_id].email,
-            profile: {
-              firstName: usersById[t.user_id]?.profile?.firstName || '',
-              lastName: usersById[t.user_id]?.profile?.lastName || '',
-              businessName: usersById[t.user_id]?.profile?.businessName || ''
-            }
+            firstName: usersById[t.user_id]?.profile?.firstName || '',
+            lastName: usersById[t.user_id]?.profile?.lastName || '',
+            businessName: usersById[t.user_id]?.profile?.businessName || ''
           }
         : null
     }))
@@ -270,7 +335,7 @@ router.get('/stats/overview', [auth, adminAuth], async (req, res) => {
         active: activeUsers2,
         kycPending: kycPendingUsers,
         kycApproved: kycApprovedUsers,
-        kycApprovalRate: totalUsers > 0 ? ((kycApprovedUsers / totalUsers) * 100).toFixed(1) : 0
+        kycApprovalRate: totalUsers2 > 0 ? ((kycApprovedUsers / totalUsers2) * 100).toFixed(1) : 0
       },
       transactions: {
         total: totalTransactions2,
