@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { TokenStorage, ApiSecurity, SessionSecurity, ErrorSecurity } from '../utils/security';
+import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext();
 
@@ -245,16 +246,20 @@ export const AuthProvider = ({ children }) => {
   // Resend verification email function
   const resendVerificationEmail = async () => {
     try {
+      if (supabase && user?.email) {
+        const { error } = await supabase.auth.resend({ type: 'signup', email: user.email });
+        if (error) throw error;
+        toast.success('Verification email sent! Please check your inbox.');
+        return { success: true, message: 'Verification email sent via Supabase' };
+      }
       const response = await axios.post('/api/auth/resend-verification');
-      
       if (response.data.success) {
         toast.success('Verification email sent! Please check your inbox.');
         return { success: true, message: response.data.message };
       }
-      
       return { success: false, message: response.data.message };
     } catch (error) {
-      const message = error.response?.data?.message || 'Failed to resend verification email';
+      const message = error.message || error.response?.data?.message || 'Failed to resend verification email';
       toast.error(message);
       return { success: false, error: message };
     }
@@ -267,7 +272,12 @@ export const AuthProvider = ({ children }) => {
 
   // Helper: check if current user's email is verified
   const isEmailVerified = () => {
-    return user?.isEmailVerified === true;
+    try {
+      const confirmed = user?.email_confirmed_at || user?.isEmailVerified;
+      return !!confirmed;
+    } catch (_) {
+      return true; // Do not block UI if status unknown
+    }
   };
 
   const value = {

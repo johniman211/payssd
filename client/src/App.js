@@ -15,8 +15,7 @@ import Footer from './components/layout/Footer';
 import Sidebar from './components/layout/Sidebar';
 import AdminLayout from './layouts/AdminLayout';
 import LoadingSpinner from './components/ui/LoadingSpinner';
-import EnhancedEmailVerification from './components/EnhancedEmailVerification';
-import EmailVerificationRequired from './components/EmailVerificationRequired';
+// Email verification UI disabled per product decision
 import AnnouncementBanner from './components/AnnouncementBanner';
 
 // Public Pages
@@ -150,9 +149,7 @@ const ProtectedRoute = ({ children, adminOnly = false, merchantOnly = false, req
   }
 
   // Check email verification for merchant routes that require it
-  if (requireEmailVerification && merchantOnly && !isEmailVerified()) {
-    return <EmailVerificationRequired />;
-  }
+  // Email verification gating disabled
 
   return <AnimatedPage>{children}</AnimatedPage>;
 };
@@ -204,7 +201,7 @@ const DashboardLayout = ({ children }) => {
           onMobileClose={() => setIsMobileSidebarOpen(false)}
         />
         <main className="flex-1 lg:ml-64 transition-all duration-300 relative z-10">
-          <EnhancedEmailVerification />
+          {null}
           <div className="p-4 sm:p-6 lg:p-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
