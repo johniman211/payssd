@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
+const { Users } = require('../services/supabaseRepo');
 const { auth, merchantAuth, adminAuth } = require('../middleware/auth');
 const { requireEmailVerification } = require('../middleware/emailVerification');
 
@@ -215,39 +216,42 @@ router.post('/submit', auth, requireEmailVerification, merchantAuth, upload.fiel
 // @access  Private (Merchant)
 router.get('/status', auth, requireEmailVerification, merchantAuth, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('kyc profile.businessName');
-    
+    const user = await Users.getById(req.user.id)
     if (!user) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
-      });
+      })
     }
+
+    const kyc = user.kyc || {}
+    const docs = (user.kyc && user.kyc.documents) || {}
+    const profile = user.profile || {}
 
     res.json({
       success: true,
       kyc: {
-        status: user.kyc.status,
-        submittedAt: user.kyc.submittedAt,
-        reviewedAt: user.kyc.reviewedAt,
-        rejectionReason: user.kyc.rejectionReason,
-        verificationLevel: user.kyc.verificationLevel,
+        status: kyc.status || 'not_submitted',
+        submittedAt: kyc.submittedAt || null,
+        reviewedAt: kyc.reviewedAt || null,
+        rejectionReason: kyc.rejectionReason || null,
+        verificationLevel: kyc.verificationLevel || null,
         documents: {
-          idType: user.kyc.documents.idType,
-          hasIdDocument: !!user.kyc.documents.idDocument,
-          hasBusinessLicense: !!user.kyc.documents.businessLicense,
-          hasProofOfAddress: !!user.kyc.documents.proofOfAddress
+          idType: docs.idType || null,
+          hasIdDocument: !!docs.idDocument,
+          hasBusinessLicense: !!docs.businessLicense,
+          hasProofOfAddress: !!docs.proofOfAddress
         }
       },
-      businessName: user.profile.businessName
-    });
+      businessName: profile.businessName || ''
+    })
 
   } catch (error) {
     console.error('Get KYC status error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'
-    });
+    })
   }
 });
 

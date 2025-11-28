@@ -95,11 +95,11 @@ router.get('/recent-activity', [auth, adminAuth], async (req, res) => {
       .order('created_at',{ ascending:false })
       .limit(5);
     
-    recentUsers.forEach(user => {
+    (recentUsers || []).forEach(user => {
       activities.push({
         type: 'user_registration',
         message: `New user registered: ${user.profile.firstName} ${user.profile.lastName}`,
-        timestamp: user.createdAt,
+        timestamp: user.created_at,
         user: user.email
       });
     });
@@ -118,12 +118,12 @@ router.get('/recent-activity', [auth, adminAuth], async (req, res) => {
       }
     }
     
-    recentTransactions.forEach(transaction => {
+    (recentTransactions || []).forEach(transaction => {
       activities.push({
         type: 'transaction',
         message: `Transaction ${transaction.status}: USD ${transaction.amount}`,
-        timestamp: transaction.createdAt,
-        user: transaction.merchant?.email
+        timestamp: transaction.created_at,
+        user: userEmails[transaction.user_id] || ''
       });
     });
 
@@ -140,15 +140,28 @@ router.get('/recent-activity', [auth, adminAuth], async (req, res) => {
 // Get pending KYC submissions
 router.get('/pending-kyc', [auth, adminAuth], async (req, res) => {
   try {
-    const pendingKyc = await User.find({ 
-      role: 'merchant', 
-      'kyc.status': 'pending' 
-    })
-    .select('email profile.firstName profile.lastName kyc.submittedAt kyc.documents')
-    .sort({ 'kyc.submittedAt': -1 })
-    .limit(10);
-    
-    res.json(pendingKyc);
+    const { data, error } = await supabase
+      .from('users')
+      .select('email,profile,kyc,created_at')
+      .eq('role', 'merchant')
+      .eq('kyc->>status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(10)
+    if (error) throw error
+
+    const pendingKyc = (data || []).map(u => ({
+      email: u.email,
+      profile: {
+        firstName: u?.profile?.firstName || '',
+        lastName: u?.profile?.lastName || ''
+      },
+      kyc: {
+        submittedAt: u?.kyc?.submittedAt || null,
+        documents: u?.kyc?.documents || {}
+      }
+    }))
+
+    res.json(pendingKyc)
   } catch (error) {
     console.error('Get pending KYC error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -158,13 +171,46 @@ router.get('/pending-kyc', [auth, adminAuth], async (req, res) => {
 // Get recent transactions for dashboard
 router.get('/recent-transactions', [auth, adminAuth], async (req, res) => {
   try {
-    const recentTransactions = await Transaction.find()
-      .populate('merchant', 'email profile.firstName profile.lastName profile.businessName')
-      .sort({ createdAt: -1 })
+    const { data: txs, error } = await supabase
+      .from('transactions')
+      .select('amount,status,payment_method,created_at,user_id,reference')
+      .order('created_at', { ascending: false })
       .limit(10)
-      .select('amount status paymentMethod createdAt merchant reference');
-    
-    res.json(recentTransactions);
+    if (error) throw error
+
+    const userIds = [...new Set((txs || []).map(t => t.user_id).filter(Boolean))]
+    const usersById = {}
+    if (userIds.length) {
+      const { data: users, error: uErr } = await supabase
+        .from('users')
+        .select('id,email,profile')
+        .in('id', userIds)
+      if (!uErr && users) {
+        for (const u of users) {
+          usersById[u.id] = u
+        }
+      }
+    }
+
+    const recentTransactions = (txs || []).map(t => ({
+      amount: t.amount,
+      status: t.status,
+      paymentMethod: t.payment_method,
+      createdAt: t.created_at,
+      reference: t.reference,
+      merchant: usersById[t.user_id]
+        ? {
+            email: usersById[t.user_id].email,
+            profile: {
+              firstName: usersById[t.user_id]?.profile?.firstName || '',
+              lastName: usersById[t.user_id]?.profile?.lastName || '',
+              businessName: usersById[t.user_id]?.profile?.businessName || ''
+            }
+          }
+        : null
+    }))
+
+    res.json(recentTransactions)
   } catch (error) {
     console.error('Get recent transactions error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -253,9 +299,9 @@ router.get('/stats/overview', [auth, adminAuth], async (req, res) => {
       payouts: {
         total: totalPayouts,
         pending: pendingPayouts,
-        completed: payoutAmount.find(p => p._id === 'completed')?.count || 0,
-        completedAmount: payoutAmount.find(p => p._id === 'completed')?.amount || 0,
-        pendingAmount: payoutAmount.find(p => p._id === 'pending')?.amount || 0
+        completed: (payoutAgg.completed?.count || 0),
+        completedAmount: (payoutAgg.completed?.amount || 0),
+        pendingAmount: (payoutAgg.pending?.amount || 0)
       }
     };
 
@@ -314,109 +360,59 @@ router.get('/users', [
       search
     } = req.query;
 
-    // Build filter query
-    const filter = { role: 'merchant' };
-
-    if (status === 'active') filter.isActive = true;
-    if (status === 'inactive') filter.isActive = false;
-    if (kycStatus) filter['kyc.status'] = kycStatus;
-
-    // Search filter
-    if (search) {
-      filter.$or = [
-        { email: { $regex: search, $options: 'i' } },
-        { 'profile.firstName': { $regex: search, $options: 'i' } },
-        { 'profile.lastName': { $regex: search, $options: 'i' } },
-        { 'profile.businessName': { $regex: search, $options: 'i' } }
-      ];
-    }
-
-    // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
+    let q = supabase
+      .from('users')
+      .select('id,email,profile,kyc,is_active,role,created_at', { count: 'exact' })
+      .eq('role', 'merchant');
+    if (status === 'active') q = q.eq('is_active', true);
+    if (status === 'inactive') q = q.eq('is_active', false);
+    if (kycStatus) q = q.eq('kyc->>status', kycStatus);
+    if (search) q = q.or(`email.ilike.%${search}%,profile->>firstName.ilike.%${search}%,profile->>lastName.ilike.%${search}%,profile->>businessName.ilike.%${search}%`);
+    q = q.order('created_at', { ascending: false }).range(skip, skip + parseInt(limit) - 1);
+    const { data: rows, count: totalCount } = await q;
 
-    // Get users with pagination
-    const [users, totalCount] = await Promise.all([
-      User.find(filter)
-        .select('-password -apiKeys.secretKey')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit))
-        .lean(),
-      User.countDocuments(filter)
-    ]);
-
-    // Get transaction counts for each user
-    const userIds = users.map(user => user._id);
-    const transactionCounts = await Transaction.aggregate([
-      { $match: { merchant: { $in: userIds } } },
-      {
-        $group: {
-          _id: '$merchant',
-          totalTransactions: { $sum: 1 },
-          successfulTransactions: {
-            $sum: { $cond: [{ $eq: ['$status', 'successful'] }, 1, 0] }
-          },
-          totalRevenue: {
-            $sum: { $cond: [{ $eq: ['$status', 'successful'] }, '$amount', 0] }
-          }
-        }
-      }
-    ]);
-
-    // Merge transaction data with users and flatten user data
-    const usersWithStats = users.map(user => {
-      const stats = transactionCounts.find(tc => tc._id.toString() === user._id.toString());
-      return {
-        ...user,
-        // Flatten profile data for frontend compatibility
-        firstName: user.profile?.firstName || '',
-        lastName: user.profile?.lastName || '',
-        phone: user.profile?.phoneNumber || '',
-        businessName: user.profile?.businessName || '',
-        businessType: user.profile?.businessType || '',
-        city: user.profile?.address?.city || '',
-        country: user.profile?.address?.country || '',
-        // Flatten KYC data
-        kycStatus: user.kyc?.status || 'not_submitted',
-        kycSubmittedAt: user.kyc?.submittedAt,
-        kycReviewedAt: user.kyc?.reviewedAt,
-        stats: {
-          totalTransactions: stats?.totalTransactions || 0,
-          successfulTransactions: stats?.successfulTransactions || 0,
-          totalRevenue: stats?.totalRevenue || 0
-        }
-      };
+    const { data: allTx } = await supabase.from('transactions').select('user_id,status,amount');
+    const txByUser = {};
+    (allTx || []).forEach(t => {
+      const k = t.user_id; if (!k) return; if (!txByUser[k]) txByUser[k] = { totalTransactions: 0, successfulTransactions: 0, totalRevenue: 0 };
+      txByUser[k].totalTransactions += 1;
+      if (t.status === 'successful') { txByUser[k].successfulTransactions += 1; txByUser[k].totalRevenue += (t.amount || 0); }
     });
 
-    // Calculate pagination info
-    const totalPages = Math.ceil(totalCount / parseInt(limit));
+    const usersWithStats = (rows || []).map(u => ({
+      id: u.id,
+      email: u.email,
+      isActive: !!u.is_active,
+      role: u.role,
+      createdAt: u.created_at,
+      firstName: u?.profile?.firstName || '',
+      lastName: u?.profile?.lastName || '',
+      phone: u?.profile?.phoneNumber || '',
+      businessName: u?.profile?.businessName || '',
+      businessType: u?.profile?.businessType || '',
+      city: u?.profile?.address?.city || '',
+      country: u?.profile?.address?.country || '',
+      kycStatus: u?.kyc?.status || 'not_submitted',
+      kycSubmittedAt: u?.kyc?.submittedAt,
+      kycReviewedAt: u?.kyc?.reviewedAt,
+      stats: txByUser[u.id] || { totalTransactions: 0, successfulTransactions: 0, totalRevenue: 0 }
+    }));
+
+    const totalPages = Math.ceil((totalCount || 0) / parseInt(limit));
     const hasNextPage = parseInt(page) < totalPages;
     const hasPrevPage = parseInt(page) > 1;
 
-    // Calculate user statistics for the frontend
-    const stats = {
-      total: totalCount,
-      active: await User.countDocuments({ role: 'merchant', isActive: true }),
-      inactive: await User.countDocuments({ role: 'merchant', isActive: false }),
-      merchants: await User.countDocuments({ role: 'merchant' }),
-      admins: await User.countDocuments({ role: 'admin' }),
-      kycApproved: await User.countDocuments({ role: 'merchant', 'kyc.status': 'approved' }),
-      kycPending: await User.countDocuments({ role: 'merchant', 'kyc.status': 'pending' })
-    };
+    const { count: activeCount } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'merchant').eq('is_active', true);
+    const { count: inactiveCount } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'merchant').eq('is_active', false);
+    const { count: merchants } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'merchant');
+    const { count: admins } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'admin');
+    const { count: kycApproved } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'merchant').eq('kyc->>status', 'approved');
+    const { count: kycPending } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'merchant').eq('kyc->>status', 'pending');
 
-    res.json({
-      success: true,
-      users: usersWithStats,
-      stats,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages,
-        totalCount,
-        hasNextPage,
-        hasPrevPage,
-        limit: parseInt(limit)
-      }
-    });
+    const stats = { total: totalCount || 0, active: activeCount || 0, inactive: inactiveCount || 0, merchants: merchants || 0, admins: admins || 0, kycApproved: kycApproved || 0, kycPending: kycPending || 0 };
+
+    res.json({ success: true, users: usersWithStats, stats, pagination: { currentPage: parseInt(page), totalPages, totalCount: totalCount || 0, hasNextPage, hasPrevPage, limit: parseInt(limit) } });
 
   } catch (error) {
     console.error('Get users error:', error);
@@ -428,48 +424,61 @@ router.get('/users', [
 router.get('/users/:userId', [auth, adminAuth], async (req, res) => {
   try {
     const { userId } = req.params;
-
-    const user = await User.findById(userId)
-      .select('-password -apiKeys.secretKey')
-      .lean();
-
+    const user = await Users.getById(userId);
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    // Get user's transaction statistics
-    const transactionStats = await Transaction.getMerchantStats(userId);
+    const txOverview = await Transactions.statsOverview(userId);
+    const transactionsStats = {
+      totalTransactions: txOverview.totalTransactions,
+      successfulTransactions: txOverview.successfulTransactions,
+      totalAmount: txOverview.totalAmount,
+      totalFees: txOverview.totalFees,
+      averageAmount: txOverview.averageTransaction,
+      successRate: txOverview.successRate
+    };
 
-    // Get recent transactions
-    const recentTransactions = await Transaction.find({ merchant: userId })
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .select('transactionId amount currency status paymentMethod customer createdAt')
-      .lean();
+    const { data: recentTx } = await supabase
+      .from('transactions')
+      .select('transaction_id,amount,currency,status,payment_method,customer,created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(10);
 
-    // Get payout statistics
-    const payoutStats = await Payout.aggregate([
-      { $match: { merchant: userId } },
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' }
-        }
-      }
-    ]);
+    const { data: payoutsAll } = await supabase
+      .from('payouts')
+      .select('status,amount')
+      .eq('user_id', userId);
+    const payoutStatsMap = {};
+    (payoutsAll || []).forEach(p => {
+      const k = p.status || 'unknown';
+      if (!payoutStatsMap[k]) payoutStatsMap[k] = { _id: k, count: 0, amount: 0 };
+      payoutStatsMap[k].count += 1;
+      payoutStatsMap[k].amount += (p.amount || 0);
+    });
+    const payoutStats = Object.values(payoutStatsMap);
 
     res.json({
       success: true,
       user: {
-        ...user,
+        id: user.id,
+        email: user.email,
+        profile: user.profile,
+        kyc: user.kyc,
+        isActive: !!user.is_active,
         stats: {
-          transactions: transactionStats,
+          transactions: transactionsStats,
           payouts: payoutStats,
-          recentTransactions
+          recentTransactions: (recentTx || []).map(t => ({
+            transactionId: t.transaction_id,
+            amount: t.amount,
+            currency: t.currency,
+            status: t.status,
+            paymentMethod: t.payment_method,
+            customer: t.customer,
+            createdAt: t.created_at
+          }))
         }
       }
     });
@@ -505,46 +514,16 @@ router.put('/users/:userId/status', [
 
     const { userId } = req.params;
     const { isActive, reason } = req.body;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    if (user.role === 'admin') {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot modify admin user status'
-      });
-    }
-
-    user.isActive = isActive;
-    user.updatedAt = new Date();
-    
-    // Add admin note
-    if (reason) {
-      user.adminNotes = user.adminNotes || [];
-      user.adminNotes.push({
-        note: `Status changed to ${isActive ? 'active' : 'inactive'}: ${reason}`,
-        addedBy: req.user.id,
-        addedAt: new Date()
-      });
-    }
-
-    await user.save();
-
-    res.json({
-      success: true,
-      message: `User ${isActive ? 'activated' : 'deactivated'} successfully`,
-      user: {
-        _id: user._id,
-        email: user.email,
-        isActive: user.isActive
-      }
-    });
+    const { data: existing } = await supabase
+      .from('users')
+      .select('id,email,role')
+      .eq('id', userId)
+      .limit(1)
+      .maybeSingle();
+    if (!existing) { return res.status(404).json({ success: false, message: 'User not found' }); }
+    if (existing.role === 'admin') { return res.status(400).json({ success: false, message: 'Cannot modify admin user status' }); }
+    await supabase.from('users').update({ is_active: !!isActive }).eq('id', userId);
+    res.json({ success: true, message: `User ${isActive ? 'activated' : 'deactivated'} successfully`, user: { _id: existing.id, email: existing.email, isActive: !!isActive } });
 
   } catch (error) {
     console.error('Update user status error:', error);
@@ -574,35 +553,11 @@ router.put('/users/:userId/activate', [
 
     const { userId } = req.params;
     const { reason } = req.body;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-
-    if (user.role === 'admin') {
-      return res.status(400).json({ success: false, message: 'Cannot modify admin user status' });
-    }
-
-    user.isActive = true;
-    user.updatedAt = new Date();
-
-    if (reason) {
-      user.adminNotes = user.adminNotes || [];
-      user.adminNotes.push({
-        note: `Status changed to active: ${reason}`,
-        addedBy: req.user.id,
-        addedAt: new Date()
-      });
-    }
-
-    await user.save();
-
-    res.json({
-      success: true,
-      message: 'User activated successfully',
-      user: { _id: user._id, email: user.email, isActive: user.isActive }
-    });
+    const { data: existing } = await supabase.from('users').select('id,email,role').eq('id', userId).limit(1).maybeSingle();
+    if (!existing) { return res.status(404).json({ success: false, message: 'User not found' }); }
+    if (existing.role === 'admin') { return res.status(400).json({ success: false, message: 'Cannot modify admin user status' }); }
+    await supabase.from('users').update({ is_active: true }).eq('id', userId);
+    res.json({ success: true, message: 'User activated successfully', user: { _id: existing.id, email: existing.email, isActive: true } });
 
   } catch (error) {
     console.error('Activate user error:', error);
@@ -632,46 +587,17 @@ router.put('/users/:userId/deactivate', [
 
     const { userId } = req.params;
     const { reason } = req.body;
+    const { data: existing } = await supabase.from('users').select('id,email,role').eq('id', userId).limit(1).maybeSingle();
+    if (!existing) { return res.status(404).json({ success: false, message: 'User not found' }); }
+    if (existing.role === 'admin') { return res.status(400).json({ success: false, message: 'Cannot modify admin user status' }); }
+    await supabase.from('users').update({ is_active: false }).eq('id', userId);
+    res.json({ success: true, message: 'User deactivated successfully', user: { _id: existing.id, email: existing.email, isActive: false } });
 
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-
-    if (user.role === 'admin') {
-      return res.status(400).json({ success: false, message: 'Cannot modify admin user status' });
-    }
-
-    user.isActive = false;
-    user.updatedAt = new Date();
-
-    if (reason) {
-      user.adminNotes = user.adminNotes || [];
-      user.adminNotes.push({
-        note: `Status changed to inactive: ${reason}`,
-        addedBy: req.user.id,
-        addedAt: new Date()
-      });
-    }
-
-    await user.save();
-
-    res.json({
-      success: true,
-      message: 'User deactivated successfully',
-      user: { _id: user._id, email: user.email, isActive: user.isActive }
-    });
-
-    // Send admin deletion notification (non-blocking)
     try {
       if (process.env.ADMIN_EMAIL) {
-        sendAdminUserDeletedEmail(user, req.user, reason).catch(err => 
-          console.error('Admin user deleted email failed:', err?.message || err)
-        );
+        sendAdminUserDeletedEmail({ email: existing.email }, req.user, reason).catch(() => {});
       }
-    } catch (adminEmailErr) {
-      console.error('Error scheduling admin user deleted email:', adminEmailErr);
-    }
+    } catch (_) {}
 
   } catch (error) {
     console.error('Deactivate user error:', error);
@@ -684,7 +610,7 @@ router.delete('/users/:userId', [
   auth,
   adminAuth,
   // Validate userId path param
-  param('userId').isMongoId().withMessage('Invalid user id'),
+  param('userId').isString().withMessage('Invalid user id'),
   // Make confirmation optional to align with client implementation
   body('confirmation')
     .optional()
@@ -707,95 +633,52 @@ router.delete('/users/:userId', [
     }
 
     const { userId } = req.params;
-    // Axios.delete sends body as config.data; ensure we read from either body or query/header if needed
     const reason = (req.body && req.body.reason) || req.query.reason || undefined;
 
-    const user = await User.findById(userId);
+    const { data: user } = await supabase
+      .from('users')
+      .select('id,email,role,profile,balance')
+      .eq('id', userId)
+      .limit(1)
+      .maybeSingle();
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
-
     if (user.role === 'admin') {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot delete admin users'
-      });
+      return res.status(400).json({ success: false, message: 'Cannot delete admin users' });
     }
 
-    // Check if user has pending transactions
-    const Transaction = require('../models/Transaction');
-    const pendingTransactions = await Transaction.countDocuments({
-      merchant: userId,
-      status: { $in: ['pending', 'processing'] }
-    });
-
-    if (pendingTransactions > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot delete user with pending transactions. Please wait for all transactions to complete.'
-      });
+    const { count: pendingTransactions } = await supabase
+      .from('transactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .in('status', ['pending', 'processing']);
+    if ((pendingTransactions || 0) > 0) {
+      return res.status(400).json({ success: false, message: 'Cannot delete user with pending transactions. Please wait for all transactions to complete.' });
     }
 
-    // Check if user has remaining balance (guard against missing balance object)
-    const hasBalance = user.balance && ((user.balance.available || 0) > 0 || (user.balance.pending || 0) > 0);
+    const hasBalance = user.balance && (((user.balance.available || 0) > 0) || ((user.balance.pending || 0) > 0));
     if (hasBalance) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot delete user with remaining balance. Please process payouts first.'
-      });
+      return res.status(400).json({ success: false, message: 'Cannot delete user with remaining balance. Please process payouts first.' });
     }
 
-    // Instead of hard delete, deactivate and anonymize the user to preserve transaction history
-    user.isActive = false;
-    user.email = `deleted_${Date.now()}_${user.email}`;
+    const nowIso = new Date().toISOString();
+    const newEmail = `deleted_${Date.now()}_${user.email}`;
+    const profile = {
+      ...(user.profile || {}),
+      firstName: 'Deleted',
+      lastName: 'User',
+      phoneNumber: 'deleted',
+      businessName: 'Deleted Business',
+      address: { ...(user.profile?.address || {}), city: user.profile?.address?.city || 'Juba', country: user.profile?.address?.country || 'South Sudan' }
+    };
+    const adminNotes = [{ note: `User deleted by admin: ${reason || 'No reason provided'}`, addedBy: req.user.id, addedAt: nowIso }];
+    await supabase
+      .from('users')
+      .update({ is_active: false, email: newEmail, profile, apiKeys: null, adminNotes, updated_at: nowIso })
+      .eq('id', userId);
 
-    // Ensure profile exists and contains required fields to satisfy schema validation
-    if (!user.profile) {
-      user.profile = {
-        firstName: 'Deleted',
-        lastName: 'User',
-        phoneNumber: 'deleted',
-        businessName: 'Deleted Business',
-        address: {
-          city: 'Juba',
-          country: 'South Sudan'
-        }
-      };
-    } else {
-      user.profile.firstName = 'Deleted';
-      user.profile.lastName = 'User';
-      user.profile.phoneNumber = 'deleted';
-      user.profile.businessName = 'Deleted Business';
-      // Ensure address exists with required fields
-      if (!user.profile.address) {
-        user.profile.address = { city: 'Juba', country: 'South Sudan' };
-      } else {
-        if (!user.profile.address.city) user.profile.address.city = 'Juba';
-        if (!user.profile.address.country) user.profile.address.country = 'South Sudan';
-      }
-    }
-
-    user.password = 'deleted_password_' + Date.now();
-    user.apiKeys = undefined;
-    user.updatedAt = new Date();
-    
-    // Add admin note
-    user.adminNotes = user.adminNotes || [];
-    user.adminNotes.push({
-      note: `User deleted by admin: ${reason || 'No reason provided'}`,
-      addedBy: req.user.id,
-      addedAt: new Date()
-    });
-
-    await user.save();
-
-    res.json({
-      success: true,
-      message: 'User has been successfully deleted and anonymized'
-    });
+    res.json({ success: true, message: 'User has been successfully deleted and anonymized' });
 
   } catch (error) {
     console.error('Delete user error:', error);
@@ -806,13 +689,7 @@ router.delete('/users/:userId', [
         errors: Object.values(error.errors || {}).map(e => ({ msg: e.message, path: e.path }))
       });
     }
-    if (error?.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: 'Duplicate key error',
-        keyValue: error.keyValue
-      });
-    }
+    // Ignore duplicate key semantics in Supabase context
     res.status(500).json({
       success: false,
       message: process.env.NODE_ENV === 'development' ? (error?.message || 'Server error') : 'Server error'
@@ -868,129 +745,68 @@ router.get('/transactions', [
       endDate
     } = req.query;
 
-    // Build filter query
-    const filter = {};
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    let tq = supabase
+      .from('transactions')
+      .select('id,transaction_id,reference,amount,currency,status,payment_method,description,user_id,customer,created_at,completed_at', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(skip, skip + parseInt(limit) - 1);
+    if (status) tq = tq.eq('status', status);
+    if (paymentMethod) tq = tq.eq('payment_method', paymentMethod);
+    if (startDate) tq = tq.gte('created_at', new Date(startDate).toISOString());
+    if (endDate) tq = tq.lte('created_at', new Date(endDate).toISOString());
+    const { data: txRows, count: totalCount } = await tq;
 
-    if (status) filter.status = status;
-    if (paymentMethod) filter.paymentMethod = paymentMethod;
-
-    // Date range filter
-    if (startDate || endDate) {
-      filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = new Date(startDate);
-      if (endDate) filter.createdAt.$lte = new Date(endDate);
+    const userIds = [...new Set((txRows || []).map(t => t.user_id).filter(Boolean))];
+    const usersById = {};
+    if (userIds.length) {
+      const { data: us } = await supabase.from('users').select('id,email,profile').in('id', userIds);
+      (us || []).forEach(u => { usersById[u.id] = u; });
     }
 
-    // Calculate pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-
-    // Get transactions with merchant details
-    const [transactions, totalCount] = await Promise.all([
-      Transaction.find(filter)
-        .populate('merchant', 'email profile.firstName profile.lastName profile.businessName')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit))
-        .select('-providerResponse -metadata')
-        .lean(),
-      Transaction.countDocuments(filter)
-    ]);
-
-    // Calculate stats for all transactions (not just current page)
-    const statsQuery = [];
-    
-    // Get counts by status
-    const statusStats = await Transaction.aggregate([
-      { $match: {} },
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 },
-          totalAmount: { $sum: '$amount' }
-        }
-      }
-    ]);
-
-    // Get today's transactions
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStats = await Transaction.aggregate([
-      { $match: { createdAt: { $gte: today } } },
-      {
-        $group: {
-          _id: null,
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' }
-        }
-      }
-    ]);
-
-    // Calculate overall stats
-    const allStats = await Transaction.aggregate([
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          totalAmount: { $sum: '$amount' },
-          successful: { $sum: { $cond: [{ $eq: ['$status', 'successful'] }, 1, 0] } },
-          pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
-          failed: { $sum: { $cond: [{ $eq: ['$status', 'failed'] }, 1, 0] } },
-          avgAmount: { $avg: '$amount' }
-        }
-      }
-    ]);
-
-    const stats = allStats[0] || {
-      total: 0,
-      totalAmount: 0,
-      successful: 0,
-      pending: 0,
-      failed: 0,
-      avgAmount: 0
-    };
-
-    stats.successRate = stats.total > 0 ? Math.round((stats.successful / stats.total) * 100) : 0;
-    stats.todayTransactions = todayStats[0]?.count || 0;
-    stats.todayAmount = todayStats[0]?.amount || 0;
-
-    // Transform transactions to match frontend expectations
-    const transformedTransactions = transactions.map(transaction => ({
-      id: transaction.transactionId,
-      transactionId: transaction.transactionId,
-      merchantName: transaction.merchant?.profile?.businessName || 
-                   `${transaction.merchant?.profile?.firstName || ''} ${transaction.merchant?.profile?.lastName || ''}`.trim() ||
-                   'Unknown Merchant',
-      merchantEmail: transaction.merchant?.email || '',
-      customerPhone: transaction.customer?.phoneNumber || '',
-      customerEmail: transaction.customer?.email || '',
-      amount: transaction.amount,
-      currency: transaction.currency,
-      status: transaction.status,
-      paymentMethod: transaction.paymentMethod,
-      description: transaction.description,
-      createdAt: transaction.createdAt,
-      completedAt: transaction.completedAt,
-      fees: transaction.fees
+    const transformedTransactions = (txRows || []).map(t => ({
+      id: t.transaction_id,
+      transactionId: t.transaction_id,
+      merchantName: usersById[t.user_id]?.profile?.businessName || `${usersById[t.user_id]?.profile?.firstName || ''} ${usersById[t.user_id]?.profile?.lastName || ''}`.trim() || 'Unknown Merchant',
+      merchantEmail: usersById[t.user_id]?.email || '',
+      customerPhone: t.customer?.phoneNumber || '',
+      customerEmail: t.customer?.email || '',
+      amount: t.amount,
+      currency: t.currency,
+      status: t.status,
+      paymentMethod: t.payment_method,
+      description: t.description,
+      createdAt: t.created_at,
+      completedAt: t.completed_at,
+      fees: t.fees
     }));
 
-    // Calculate pagination info
-    const totalPages = Math.ceil(totalCount / parseInt(limit));
+    const { data: allForStats } = await supabase.from('transactions').select('status,amount,created_at');
+    const total = (allForStats || []).length;
+    const totalAmount = (allForStats || []).reduce((s, r) => s + (r.amount || 0), 0);
+    const successful = (allForStats || []).filter(r => r.status === 'successful').length;
+    const pending = (allForStats || []).filter(r => r.status === 'pending').length;
+    const failed = (allForStats || []).filter(r => r.status === 'failed').length;
+    const avgAmount = total ? totalAmount / total : 0;
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const todayRows = (allForStats || []).filter(r => new Date(r.created_at) >= todayStart);
+    const stats = {
+      total,
+      totalAmount,
+      successful,
+      pending,
+      failed,
+      avgAmount,
+      successRate: total ? Math.round((successful / total) * 100) : 0,
+      todayTransactions: todayRows.length,
+      todayAmount: todayRows.reduce((s, r) => s + (r.amount || 0), 0)
+    };
+
+    const totalPages = Math.ceil((totalCount || 0) / parseInt(limit));
     const hasNextPage = parseInt(page) < totalPages;
     const hasPrevPage = parseInt(page) > 1;
 
-    res.json({
-      success: true,
-      transactions: transformedTransactions,
-      stats,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages,
-        totalCount,
-        hasNextPage,
-        hasPrevPage,
-        limit: parseInt(limit)
-      }
-    });
+    res.json({ success: true, transactions: transformedTransactions, stats, pagination: { currentPage: parseInt(page), totalPages, totalCount: totalCount || 0, hasNextPage, hasPrevPage, limit: parseInt(limit) } });
 
   } catch (error) {
     console.error('Get admin transactions error:', error);
@@ -1268,65 +1084,56 @@ router.get('/analytics/trends', [
         groupFormat = '%Y-%m-%d';
     }
 
-    // Get transaction trends
-    const transactionTrends = await Transaction.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate }
-        }
-      },
-      {
-        $group: {
-          _id: {
-            date: { $dateToString: { format: groupFormat, date: '$createdAt' } },
-            status: '$status'
-          },
-          count: { $sum: 1 },
-          amount: { $sum: '$amount' },
-          fees: { $sum: '$fees.platform' }
-        }
-      },
-      {
-        $group: {
-          _id: '$_id.date',
-          statuses: {
-            $push: {
-              status: '$_id.status',
-              count: '$count',
-              amount: '$amount',
-              fees: '$fees'
-            }
-          },
-          totalCount: { $sum: '$count' },
-          totalAmount: { $sum: '$amount' },
-          totalFees: { $sum: '$fees' }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ]);
+    const { data: txAll } = await supabase
+      .from('transactions')
+      .select('amount,fees,status,created_at')
+      .gte('created_at', startDate.toISOString());
+    const fmtDate = (d) => {
+      const dt = new Date(d);
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth()+1).padStart(2,'0');
+      const day = String(dt.getDate()).padStart(2,'0');
+      if (groupFormat === '%Y-%m') return `${y}-${m}`;
+      return `${y}-${m}-${day}`;
+    };
+    const txGrouped = {};
+    (txAll||[]).forEach(t => {
+      const key = fmtDate(t.created_at);
+      txGrouped[key] = txGrouped[key] || { _id: key, statuses: {}, totalCount: 0, totalAmount: 0, totalFees: 0 };
+      const stat = txGrouped[key];
+      stat.totalCount += 1;
+      stat.totalAmount += (t.amount||0);
+      stat.totalFees += (t.fees?.total || t.fees?.totalFees || t.fees?.platform || 0);
+      const s = t.status || 'unknown';
+      stat.statuses[s] = stat.statuses[s] || { status: s, count: 0, amount: 0, fees: 0 };
+      stat.statuses[s].count += 1;
+      stat.statuses[s].amount += (t.amount||0);
+      stat.statuses[s].fees += (t.fees?.total || t.fees?.totalFees || t.fees?.platform || 0);
+    });
+    const transactionTrends = Object.values(txGrouped).sort((a,b)=>a._id.localeCompare(b._id)).map(row => ({
+      _id: row._id,
+      statuses: Object.values(row.statuses),
+      totalCount: row.totalCount,
+      totalAmount: row.totalAmount,
+      totalFees: row.totalFees
+    }));
 
-    // Get user registration trends
-    const userTrends = await User.aggregate([
-      {
-        $match: {
-          role: 'merchant',
-          createdAt: { $gte: startDate }
-        }
-      },
-      {
-        $group: {
-          _id: { $dateToString: { format: groupFormat, date: '$createdAt' } },
-          newUsers: { $sum: 1 },
-          kycSubmitted: {
-            $sum: { $cond: [{ $ne: ['$kyc.status', null] }, 1, 0] }
-          },
-          kycApproved: {
-            $sum: { $cond: [{ $eq: ['$kyc.status', 'approved'] }, 1, 0] }
-          }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ]);
+    const { data: userAll } = await supabase
+      .from('users')
+      .select('created_at,kyc,role')
+      .eq('role','merchant')
+      .gte('created_at', startDate.toISOString());
+    const userGrouped = {};
+    (userAll||[]).forEach(u => {
+      const key = fmtDate(u.created_at);
+      userGrouped[key] = userGrouped[key] || { _id: key, newUsers: 0, kycSubmitted: 0, kycApproved: 0 };
+      const g = userGrouped[key];
+      g.newUsers += 1;
+      const st = u?.kyc?.status || null;
+      if (st) g.kycSubmitted += 1;
+      if (st === 'approved') g.kycApproved += 1;
+    });
+    const userTrends = Object.values(userGrouped).sort((a,b)=>a._id.localeCompare(b._id));
 
     res.json({
       success: true,
@@ -1348,95 +1155,43 @@ router.get('/analytics/trends', [
 // Get KYC submissions for admin review
 router.get('/kyc-submissions', [auth, adminAuth], async (req, res) => {
   try {
-    const {
-      page = 1,
-      limit = 20,
-      status
-    } = req.query;
-
+    const { page = 1, limit = 20, status } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
+    let uq = supabase
+      .from('users')
+      .select('id,email,profile,kyc,created_at', { count: 'exact' })
+      .eq('role', 'merchant')
+      .not('kyc->>status', 'eq', 'not_submitted')
+      .order('kyc->>submittedAt', { ascending: false })
+      .range(skip, skip + parseInt(limit) - 1);
+    if (status && status !== 'all') uq = uq.eq('kyc->>status', status);
+    const { data: subs, count: totalCount } = await uq;
 
-    // Base filter for merchants with KYC data
-    const baseFilter = {
-      role: 'merchant',
-      'kyc.status': { $ne: 'not_submitted' }
-    };
+    const { count: pending } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'merchant').eq('kyc->>status', 'pending');
+    const { count: approved } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'merchant').eq('kyc->>status', 'approved');
+    const { count: rejected } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'merchant').eq('kyc->>status', 'rejected');
+    const formattedStats = { total: (pending || 0) + (approved || 0) + (rejected || 0), pending: pending || 0, approved: approved || 0, rejected: rejected || 0 };
 
-    // Add status filter if specified
-    const filter = status && status !== 'all' 
-      ? { ...baseFilter, 'kyc.status': status }
-      : baseFilter;
-
-    // Get submissions and stats in parallel
-    const [submissions, totalCount, stats] = await Promise.all([
-      User.find(filter)
-        .select('email profile kyc createdAt')
-        .sort({ 'kyc.submittedAt': -1 })
-        .skip(skip)
-        .limit(parseInt(limit)),
-      User.countDocuments(filter),
-      // Get stats for all KYC statuses
-      User.aggregate([
-        { $match: baseFilter },
-        {
-          $group: {
-            _id: '$kyc.status',
-            count: { $sum: 1 }
-          }
-        }
-      ])
-    ]);
-
-    // Format stats
-    const formattedStats = {
-      total: 0,
-      pending: 0,
-      approved: 0,
-      rejected: 0
-    };
-
-    stats.forEach(stat => {
-      if (stat._id && formattedStats.hasOwnProperty(stat._id)) {
-        formattedStats[stat._id] = stat.count;
-        formattedStats.total += stat.count;
-      }
-    });
-
-    // Transform submissions to match frontend expectations
-    const transformedSubmissions = submissions.map(user => ({
-      id: user._id,
-      firstName: user.profile?.firstName || '',
-      lastName: user.profile?.lastName || '',
-      businessName: user.profile?.businessName || '',
-      businessType: user.profile?.businessType || '',
-      email: user.email,
-      phone: user.profile?.phoneNumber || '',
-      city: user.profile?.address?.city || '',
-      status: user.kyc?.status || 'not_submitted',
-      submittedAt: user.kyc?.submittedAt || user.createdAt,
-      reviewedAt: user.kyc?.reviewedAt,
-      rejectionReason: user.kyc?.rejectionReason,
-      idDocument: user.kyc?.documents?.idDocument,
-      businessLicense: user.kyc?.documents?.businessLicense
+    const transformedSubmissions = (subs || []).map(u => ({
+      id: u.id,
+      firstName: u?.profile?.firstName || '',
+      lastName: u?.profile?.lastName || '',
+      businessName: u?.profile?.businessName || '',
+      businessType: u?.profile?.businessType || '',
+      email: u.email,
+      phone: u?.profile?.phoneNumber || '',
+      city: u?.profile?.address?.city || '',
+      status: u?.kyc?.status || 'not_submitted',
+      submittedAt: u?.kyc?.submittedAt || u.created_at,
+      reviewedAt: u?.kyc?.reviewedAt,
+      rejectionReason: u?.kyc?.rejectionReason,
+      idDocument: u?.kyc?.documents?.idDocument,
+      businessLicense: u?.kyc?.documents?.businessLicense
     }));
 
-    const totalPages = Math.ceil(totalCount / parseInt(limit));
-
-    res.json({
-      success: true,
-      submissions: transformedSubmissions,
-      stats: formattedStats,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages,
-        totalCount,
-        hasNextPage: parseInt(page) < totalPages,
-        hasPrevPage: parseInt(page) > 1,
-        limit: parseInt(limit)
-      }
-    });
+    const totalPages = Math.ceil((totalCount || 0) / parseInt(limit));
+    res.json({ success: true, submissions: transformedSubmissions, stats: formattedStats, pagination: { currentPage: parseInt(page), totalPages, totalCount: totalCount || 0, hasNextPage: parseInt(page) < totalPages, hasPrevPage: parseInt(page) > 1, limit: parseInt(limit) } });
   } catch (error) {
-    console.error('Get KYC submissions error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -1446,43 +1201,25 @@ router.put('/kyc-submissions/:id/approve', [auth, adminAuth], async (req, res) =
   try {
     const { id } = req.params;
     const { notes } = req.body;
+    const { data: user } = await supabase
+      .from('users')
+      .select('id,email,kyc')
+      .eq('id', id)
+      .limit(1)
+      .maybeSingle();
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if ((user.kyc?.status || '') !== 'pending') return res.status(400).json({ message: 'KYC submission is not pending' });
 
-    const user = await User.findById(id);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    const kyc = { ...(user.kyc || {}), status: 'approved', reviewedAt: new Date().toISOString(), reviewedBy: req.user.id, adminNotes: notes || null };
+    await supabase.from('users').update({ kyc }).eq('id', id);
 
-    if (user.kyc.status !== 'pending') {
-      return res.status(400).json({ message: 'KYC submission is not pending' });
-    }
-
-    user.kyc.status = 'approved';
-    user.kyc.reviewedAt = new Date();
-    user.kyc.reviewedBy = req.user.id;
-    if (notes) user.kyc.adminNotes = notes;
-
-    await user.save();
-
-    // Send KYC approval email (non-blocking)
     try {
       if (user.email) {
-        sendKYCApprovedEmail(user).catch(err => {
-          console.error('KYC approved email failed:', err?.message || err);
-        });
+        sendKYCApprovedEmail({ email: user.email, kyc }).catch(() => {});
       }
-    } catch (e) {
-      console.error('KYC approved email error wrapper:', e?.message || e);
-    }
+    } catch (_) {}
 
-    res.json({
-      success: true,
-      message: 'KYC submission approved successfully',
-      user: {
-        id: user._id,
-        email: user.email,
-        kyc: user.kyc
-      }
-    });
+    res.json({ success: true, message: 'KYC submission approved successfully', user: { id, email: user.email, kyc } });
   } catch (error) {
     console.error('Approve KYC error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -1571,49 +1308,41 @@ router.put('/settings', [auth, adminAuth], async (req, res) => {
 router.get('/transactions/export', [auth, adminAuth], async (req, res) => {
   try {
     const { format = 'csv', startDate, endDate } = req.query;
-
-    const filter = {};
-    if (startDate || endDate) {
-      filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = new Date(startDate);
-      if (endDate) filter.createdAt.$lte = new Date(endDate);
+    let eq = supabase
+      .from('transactions')
+      .select('reference,amount,status,payment_method,created_at,user_id,fees')
+      .order('created_at', { ascending: false });
+    if (startDate) eq = eq.gte('created_at', new Date(startDate).toISOString());
+    if (endDate) eq = eq.lte('created_at', new Date(endDate).toISOString());
+    const { data: rows } = await eq;
+    const userIds = [...new Set((rows || []).map(r => r.user_id).filter(Boolean))];
+    const usersById = {};
+    if (userIds.length) {
+      const { data: us } = await supabase.from('users').select('id,email,profile').in('id', userIds);
+      (us || []).forEach(u => { usersById[u.id] = u; });
     }
-
-    const transactions = await Transaction.find(filter)
-      .populate('merchant', 'email profile.firstName profile.lastName profile.businessName')
-      .sort({ createdAt: -1 })
-      .select('reference amount status paymentMethod createdAt merchant fees');
-
     if (format === 'csv') {
-      const csvData = transactions.map(t => ({
+      const csvData = (rows || []).map(t => ({
         Reference: t.reference,
         Amount: t.amount,
         Status: t.status,
-        'Payment Method': t.paymentMethod,
-        'Merchant Email': t.merchant?.email,
-        'Merchant Name': `${t.merchant?.profile?.firstName} ${t.merchant?.profile?.lastName}`,
-        'Business Name': t.merchant?.profile?.businessName,
-        'Platform Fee': t.fees?.platform || 0,
-        'Created At': t.createdAt
+        'Payment Method': t.payment_method,
+        'Merchant Email': usersById[t.user_id]?.email,
+        'Merchant Name': `${usersById[t.user_id]?.profile?.firstName || ''} ${usersById[t.user_id]?.profile?.lastName || ''}`.trim(),
+        'Business Name': usersById[t.user_id]?.profile?.businessName,
+        'Platform Fee': t.fees?.platform || t.fees?.total || t.fees?.totalFees || 0,
+        'Created At': t.created_at
       }));
-
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename=transactions.csv');
-      
-      // Simple CSV conversion (in production, use a proper CSV library)
       const headers = Object.keys(csvData[0] || {}).join(',');
-      const rows = csvData.map(row => Object.values(row).join(','));
-      const csv = [headers, ...rows].join('\n');
-      
+      const rowsCsv = csvData.map(row => Object.values(row).join(','));
+      const csv = [headers, ...rowsCsv].join('\n');
       res.send(csv);
     } else {
-      res.json({
-        success: true,
-        transactions
-      });
+      res.json({ success: true, transactions: rows || [] });
     }
   } catch (error) {
-    console.error('Export transactions error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -1622,45 +1351,40 @@ router.get('/transactions/export', [auth, adminAuth], async (req, res) => {
 router.get('/payouts/export', [auth, adminAuth], async (req, res) => {
   try {
     const { format = 'csv', startDate, endDate } = req.query;
-
-    const filter = {};
-    if (startDate || endDate) {
-      filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = new Date(startDate);
-      if (endDate) filter.createdAt.$lte = new Date(endDate);
+    let pq = supabase
+      .from('payouts')
+      .select('payout_id,amount,status,created_at,completed_at,user_id,destination')
+      .order('created_at', { ascending: false });
+    if (startDate) pq = pq.gte('created_at', new Date(startDate).toISOString());
+    if (endDate) pq = pq.lte('created_at', new Date(endDate).toISOString());
+    const { data: rows } = await pq;
+    const userIds = [...new Set((rows || []).map(r => r.user_id).filter(Boolean))];
+    const usersById = {};
+    if (userIds.length) {
+      const { data: us } = await supabase.from('users').select('id,email,profile').in('id', userIds);
+      (us || []).forEach(u => { usersById[u.id] = u; });
     }
-
-    const payouts = await Payout.find(filter)
-      .populate('merchant', 'email profile.firstName profile.lastName profile.businessName')
-      .sort({ createdAt: -1 });
-
     if (format === 'csv') {
-      const csvData = payouts.map(p => ({
-        Reference: p.payoutId,
+      const csvData = (rows || []).map(p => ({
+        Reference: p.payout_id,
         Amount: p.amount,
         Status: p.status,
         'Bank Name': p.destination?.bankName,
         'Account Number': p.destination?.accountNumber,
-        'Merchant Email': p.merchant?.email,
-        'Merchant Name': `${p.merchant?.profile?.firstName} ${p.merchant?.profile?.lastName}`,
-        'Business Name': p.merchant?.profile?.businessName,
-        'Created At': p.createdAt,
-        'Processed At': p.processedAt
+        'Merchant Email': usersById[p.user_id]?.email,
+        'Merchant Name': `${usersById[p.user_id]?.profile?.firstName || ''} ${usersById[p.user_id]?.profile?.lastName || ''}`.trim(),
+        'Business Name': usersById[p.user_id]?.profile?.businessName,
+        'Created At': p.created_at,
+        'Processed At': p.completed_at
       }));
-
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename=payouts.csv');
-      
       const headers = Object.keys(csvData[0] || {}).join(',');
-      const rows = csvData.map(row => Object.values(row).join(','));
-      const csv = [headers, ...rows].join('\n');
-      
+      const rowsCsv = csvData.map(row => Object.values(row).join(','));
+      const csv = [headers, ...rowsCsv].join('\n');
       res.send(csv);
     } else {
-      res.json({
-        success: true,
-        payouts
-      });
+      res.json({ success: true, payouts: rows || [] });
     }
   } catch (error) {
     console.error('Export payouts error:', error);
@@ -1679,31 +1403,25 @@ router.put('/payouts/:payoutId/approve', [
     const { payoutId } = req.params;
     const { notes } = req.body;
 
-    const payout = await Payout.findOne({ payoutId }).populate('merchant');
+    const { data: payout } = await supabase
+      .from('payouts')
+      .select('*')
+      .eq('payout_id', payoutId)
+      .limit(1)
+      .maybeSingle();
     if (!payout) {
-      return res.status(404).json({
-        success: false,
-        message: 'Payout not found'
-      });
+      return res.status(404).json({ success: false, message: 'Payout not found' });
     }
-
     if (payout.status !== 'pending') {
-      return res.status(400).json({
-        success: false,
-        message: 'Only pending payouts can be approved'
-      });
+      return res.status(400).json({ success: false, message: 'Only pending payouts can be approved' });
     }
-
-    await payout.process(req.user.id);
-    payout.adminNotes = notes;
-    await payout.save();
-
-    res.json({
-      success: true,
-      message: 'Payout approved successfully',
-      payout
-    });
-
+    const fee = Payouts.calculateProcessingFee(payout.amount, payout.method);
+    const dec = (payout.amount || 0) + fee;
+    await supabase.from('payouts').update({ status: 'processing', processed_at: new Date().toISOString(), admin_notes: notes || null }).eq('payout_id', payoutId);
+    const { data: u } = await supabase.from('users').select('balance').eq('id', payout.user_id).limit(1).maybeSingle();
+    const newAvail = Math.max(0, (u?.balance?.available || 0) - dec);
+    await supabase.from('users').update({ balance: { ...(u?.balance||{}), available: newAvail } }).eq('id', payout.user_id);
+    res.json({ success: true, message: 'Payout approved successfully', payout: { ...payout, status: 'processing' } });
   } catch (error) {
     console.error('Approve payout error:', error);
     res.status(500).json({ 
@@ -1723,29 +1441,20 @@ router.put('/payouts/:payoutId/reject', [
     const { payoutId } = req.params;
     const { reason } = req.body;
 
-    const payout = await Payout.findOne({ payoutId }).populate('merchant');
+    const { data: payout } = await supabase
+      .from('payouts')
+      .select('*')
+      .eq('payout_id', payoutId)
+      .limit(1)
+      .maybeSingle();
     if (!payout) {
-      return res.status(404).json({
-        success: false,
-        message: 'Payout not found'
-      });
+      return res.status(404).json({ success: false, message: 'Payout not found' });
     }
-
     if (payout.status !== 'pending') {
-      return res.status(400).json({
-        success: false,
-        message: 'Only pending payouts can be rejected'
-      });
+      return res.status(400).json({ success: false, message: 'Only pending payouts can be rejected' });
     }
-
-    await payout.fail(reason);
-
-    res.json({
-      success: true,
-      message: 'Payout rejected successfully',
-      payout
-    });
-
+    await supabase.from('payouts').update({ status: 'failed', cancelled_at: new Date().toISOString(), cancel_reason: reason || 'Rejected by admin' }).eq('payout_id', payoutId);
+    res.json({ success: true, message: 'Payout rejected successfully', payout: { ...payout, status: 'failed' } });
   } catch (error) {
     console.error('Reject payout error:', error);
     res.status(500).json({ 
@@ -1764,29 +1473,20 @@ router.put('/payouts/:payoutId/complete', [
     const { payoutId } = req.params;
     const { externalReference } = req.body;
 
-    const payout = await Payout.findOne({ payoutId }).populate('merchant');
+    const { data: payout } = await supabase
+      .from('payouts')
+      .select('*')
+      .eq('payout_id', payoutId)
+      .limit(1)
+      .maybeSingle();
     if (!payout) {
-      return res.status(404).json({
-        success: false,
-        message: 'Payout not found'
-      });
+      return res.status(404).json({ success: false, message: 'Payout not found' });
     }
-
     if (payout.status !== 'processing' && payout.status !== 'approved') {
-      return res.status(400).json({
-        success: false,
-        message: 'Only processing/approved payouts can be completed'
-      });
+      return res.status(400).json({ success: false, message: 'Only processing/approved payouts can be completed' });
     }
-
-    await payout.complete(externalReference || 'Manual completion');
-
-    res.json({
-      success: true,
-      message: 'Payout completed successfully',
-      payout
-    });
-
+    await supabase.from('payouts').update({ status: 'completed', completed_at: new Date().toISOString(), external_reference: externalReference || 'Manual completion' }).eq('payout_id', payoutId);
+    res.json({ success: true, message: 'Payout completed successfully', payout: { ...payout, status: 'completed' } });
   } catch (error) {
     console.error('Complete payout error:', error);
     res.status(500).json({ 
