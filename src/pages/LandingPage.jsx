@@ -326,7 +326,7 @@ const LandingPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <img src={logoSvg} alt="PaySSD" className="h-5 w-5 rounded-lg" />
+                <img src={logoSvg} alt="PaySSD" className="h-6 w-6 rounded-lg" />
                 <span className="text-xl font-bold">PaySSD</span>
               </div>
               <p className="text-secondary-400">The first payment gateway for South Sudan</p>

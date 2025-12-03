@@ -77,7 +77,7 @@ const DashboardLayout = ({ children }) => {
             </button>
 
             <a href="/" className="hidden md:flex items-center gap-2">
-              <img src={logoSvg} alt="PaySSD" className="h-[1em] w-[1em]" />
+              <img src={logoSvg} alt="PaySSD" className="h-6 w-6" />
               <span className="text-secondary-900 font-semibold">PaySSD</span>
             </a>
 

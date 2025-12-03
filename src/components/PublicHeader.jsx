@@ -9,7 +9,7 @@ const PublicHeader = () => {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-2">
             <a href="/" className="flex items-center gap-2">
-              <img src={logoSvg} alt="PaySSD" className="h-5 w-5 rounded-lg shadow-inner" />
+              <img src={logoSvg} alt="PaySSD" className="h-6 w-6 rounded-lg shadow-inner" />
               <span className="text-xl font-bold text-white tracking-tight">PaySSD</span>
             </a>
           </div>

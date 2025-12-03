@@ -68,7 +68,7 @@ const AdminLayout = ({ children, activePage }) => {
           {/* Logo */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
-              <img src={logoSvg} alt="PaySSD" className="h-5 w-5 rounded-lg shadow-inner" />
+              <img src={logoSvg} alt="PaySSD" className="h-6 w-6 rounded-lg shadow-inner" />
               <div>
                 <h1 className="text-xl font-bold text-white">PaySSD</h1>
                 <p className="text-xs text-cyan-400">Admin Portal</p>
