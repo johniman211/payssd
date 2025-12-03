@@ -1,0 +1,81 @@
+import React from 'react'
+import logoSvg from '@/assets/logo.svg'
+
+const Privacy = () => {
+  return (
+    <div className="min-h-screen bg-white">
+      <header className="fixed top-0 w-full z-40 border-b border-white/10 bg-gradient-to-b from-secondary-900/90 via-secondary-900/70 to-secondary-900/30 backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <a href="/" className="flex items-center gap-2">
+            <img src={logoSvg} alt="Payssd" className="h-8 w-8 rounded-lg shadow-inner" />
+            <span className="text-white font-bold tracking-tight">Payssd</span>
+          </a>
+          <a href="/signup" className="px-4 py-2 rounded-xl bg-primary-600 text-white hover:bg-primary-700 transition-colors">Get Started</a>
+        </div>
+      </header>
+
+      <main className="pt-24 pb-20">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+          <h1 className="text-4xl font-bold text-secondary-900 tracking-tight">Privacy Policy</h1>
+          <p className="text-secondary-700">This Privacy Policy explains how we collect, use, disclose, and safeguard information when you use Payssd’s services. We are committed to protecting your privacy and handling data in accordance with applicable laws and industry standards.</p>
+
+          <section className="space-y-3">
+            <h2 className="text-2xl font-semibold text-secondary-900">Information We Collect</h2>
+            <ul className="list-disc ml-6 text-secondary-700 space-y-2">
+              <li>Account data: name, business details, email, phone, and addresses.</li>
+              <li>Payment data: transaction metadata, amounts, currency, references, and payment instrument tokens.</li>
+              <li>Verification data: identity and business documents provided for compliance.</li>
+              <li>Technical data: device information, IP address, logs, cookies, and analytics.</li>
+            </ul>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-2xl font-semibold text-secondary-900">How We Use Information</h2>
+            <ul className="list-disc ml-6 text-secondary-700 space-y-2">
+              <li>Provide and operate payments, checkouts, payouts, and merchant tools.</li>
+              <li>Maintain security, prevent fraud, and comply with AML/KYC requirements.</li>
+              <li>Support customers, send service notifications, and improve our products.</li>
+              <li>Meet legal and regulatory obligations, including record keeping.</li>
+            </ul>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-2xl font-semibold text-secondary-900">Data Sharing</h2>
+            <p className="text-secondary-700">We share data with service providers and financial partners only as necessary to deliver our services, protect users, and meet compliance obligations. We do not sell personal data.</p>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-2xl font-semibold text-secondary-900">Data Retention</h2>
+            <p className="text-secondary-700">We retain data for the duration needed to provide services and as required by law or regulation. When no longer required, we securely delete or anonymize data.</p>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-2xl font-semibold text-secondary-900">Your Rights</h2>
+            <ul className="list-disc ml-6 text-secondary-700 space-y-2">
+              <li>Access, update, or delete your information, subject to legal exceptions.</li>
+              <li>Object to certain processing and request portability where applicable.</li>
+              <li>Manage communication preferences and cookies.</li>
+            </ul>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-2xl font-semibold text-secondary-900">Cookies</h2>
+            <p className="text-secondary-700">We use cookies and similar technologies for authentication, security, and analytics. You can adjust cookie settings in your browser; disabling some cookies may affect functionality.</p>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-2xl font-semibold text-secondary-900">International Transfers</h2>
+            <p className="text-secondary-700">If data is transferred across borders, we use appropriate safeguards and partner with providers that meet recognized standards.</p>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-2xl font-semibold text-secondary-900">Contact</h2>
+            <p className="text-secondary-700">For privacy requests or questions, contact support via the website or your merchant portal.</p>
+          </section>
+        </div>
+      </main>
+    </div>
+  )
+}
+
+export default Privacy
