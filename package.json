@@ -4,12 +4,11 @@
   "description": "Payssd - First Online Payment Gateway in South Sudan",
   "type": "module",
   "scripts": {
-  "dev": "vite",
-  "build": "node scripts/build.mjs",
-  "preview": "vite preview"
-}
-,
-
+    "dev": "vite",
+    "build": "node scripts/build.mjs",
+    "preview": "vite preview",
+    "start": "vite preview --port $PORT --host"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
     "date-fns": "^2.30.0",
