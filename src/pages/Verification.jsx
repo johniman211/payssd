@@ -12,6 +12,29 @@ const Verification = () => {
   const [documents, setDocuments] = useState([]);
   const [uploadedFiles, setUploadedFiles] = useState({});
   const [kycPaths, setKycPaths] = useState({});
+  const [personalInfo, setPersonalInfo] = useState({
+    fullName: '',
+    dob: '',
+    gender: '',
+    nationality: 'South Sudan',
+    phone: '',
+    email: ''
+  });
+  const [businessInfo, setBusinessInfo] = useState({
+    businessName: '',
+    businessType: '',
+    registrationNumber: '',
+    taxId: '',
+    businessAddress: ''
+  });
+  const [withdrawalInfo, setWithdrawalInfo] = useState({
+    method: 'bank',
+    bankAccountName: '',
+    bankAccountNumber: '',
+    bankCode: '',
+    momoProvider: '',
+    momoNumber: ''
+  });
 
   useEffect(() => {
     if (profile?.documents) {
@@ -43,6 +66,30 @@ const Verification = () => {
 
     return () => clearInterval(refreshInterval);
   }, [refreshProfile]);
+
+  useEffect(() => {
+    setPersonalInfo({
+      fullName: `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(),
+      dob: '',
+      gender: '',
+      nationality: 'South Sudan',
+      phone: profile?.phone || '',
+      email: profile?.email || ''
+    });
+    setBusinessInfo({
+      businessName: profile?.business_name || '',
+      businessType: profile?.business_type || '',
+      registrationNumber: profile?.business_registration_number || '',
+      taxId: profile?.tax_id || '',
+      businessAddress: profile?.business_address || ''
+    });
+    setWithdrawalInfo((w) => ({
+      ...w,
+      bankAccountName: profile?.account_name || '',
+      bankAccountNumber: profile?.account_number || '',
+      bankCode: profile?.bank_name || ''
+    }));
+  }, [profile]);
 
   const requiredDocuments = [
     { id: 'national_id', name: 'National ID or Passport', required: true },
@@ -147,9 +194,26 @@ const Verification = () => {
         registration_doc_url: kycPaths['business_registration'] || null,
         id_doc_url: kycPaths['national_id'] || null,
         address_proof_url: kycPaths['proof_of_address'] || null,
-        bank_account_name: profile?.account_name || null,
-        bank_account_number: profile?.account_number || null,
-        bank_code: profile?.bank_name || null
+        bank_account_name: withdrawalInfo.method === 'bank' ? (withdrawalInfo.bankAccountName || null) : null,
+        bank_account_number: withdrawalInfo.method === 'bank' ? (withdrawalInfo.bankAccountNumber || null) : null,
+        bank_code: withdrawalInfo.method === 'bank' ? (withdrawalInfo.bankCode || null) : null,
+        momo_provider: withdrawalInfo.method === 'momo' ? (withdrawalInfo.momoProvider || null) : null,
+        momo_number: withdrawalInfo.method === 'momo' ? (withdrawalInfo.momoNumber || null) : null,
+        personal: {
+          full_name: personalInfo.fullName || null,
+          dob: personalInfo.dob || null,
+          gender: personalInfo.gender || null,
+          nationality: personalInfo.nationality || null,
+          phone: personalInfo.phone || null,
+          email: personalInfo.email || null
+        },
+        business: profile?.account_type === 'business' ? {
+          name: businessInfo.businessName || null,
+          type: businessInfo.businessType || null,
+          registration_number: businessInfo.registrationNumber || null,
+          tax_id: businessInfo.taxId || null,
+          address: businessInfo.businessAddress || null
+        } : null
       }
       const { data, error } = await supabase.functions.invoke('submit-kyc', {
         body: { merchant_id: profile.id, kyc: payload }
@@ -237,6 +301,62 @@ const Verification = () => {
           <p className="mt-4 text-xs text-secondary-500">
             Onboarding information is linked here for context only. Verification is a separate process and requires document submission.
           </p>
+        </Card>
+
+        <Card>
+          <h2 className="text-xl font-semibold text-secondary-900 mb-6">Personal Information</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input className="px-4 py-3 border border-secondary-200 rounded-xl" placeholder="Full Name" value={personalInfo.fullName} onChange={(e)=>setPersonalInfo({...personalInfo, fullName: e.target.value})} />
+            <input type="date" className="px-4 py-3 border border-secondary-200 rounded-xl" placeholder="Date of Birth" value={personalInfo.dob} onChange={(e)=>setPersonalInfo({...personalInfo, dob: e.target.value})} />
+            <select className="px-4 py-3 border border-secondary-200 rounded-xl" value={personalInfo.gender} onChange={(e)=>setPersonalInfo({...personalInfo, gender: e.target.value})}>
+              <option value="">Select Gender</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+            <input className="px-4 py-3 border border-secondary-200 rounded-xl" placeholder="Nationality" value={personalInfo.nationality} onChange={(e)=>setPersonalInfo({...personalInfo, nationality: e.target.value})} />
+            <input className="px-4 py-3 border border-secondary-200 rounded-xl" placeholder="Phone" value={personalInfo.phone} onChange={(e)=>setPersonalInfo({...personalInfo, phone: e.target.value})} />
+            <input type="email" className="px-4 py-3 border border-secondary-200 rounded-xl" placeholder="Email" value={personalInfo.email} onChange={(e)=>setPersonalInfo({...personalInfo, email: e.target.value})} />
+          </div>
+        </Card>
+
+        {profile?.account_type === 'business' && (
+          <Card>
+            <h2 className="text-xl font-semibold text-secondary-900 mb-6">Business Information</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input className="px-4 py-3 border border-secondary-200 rounded-xl" placeholder="Business Name" value={businessInfo.businessName} onChange={(e)=>setBusinessInfo({...businessInfo, businessName: e.target.value})} />
+              <input className="px-4 py-3 border border-secondary-200 rounded-xl" placeholder="Business Type" value={businessInfo.businessType} onChange={(e)=>setBusinessInfo({...businessInfo, businessType: e.target.value})} />
+              <input className="px-4 py-3 border border-secondary-200 rounded-xl" placeholder="Registration Number" value={businessInfo.registrationNumber} onChange={(e)=>setBusinessInfo({...businessInfo, registrationNumber: e.target.value})} />
+              <input className="px-4 py-3 border border-secondary-200 rounded-xl" placeholder="Tax ID (TIN)" value={businessInfo.taxId} onChange={(e)=>setBusinessInfo({...businessInfo, taxId: e.target.value})} />
+              <input className="px-4 py-3 border border-secondary-200 rounded-xl" placeholder="Business Address" value={businessInfo.businessAddress} onChange={(e)=>setBusinessInfo({...businessInfo, businessAddress: e.target.value})} />
+            </div>
+          </Card>
+        )}
+
+        <Card>
+          <h2 className="text-xl font-semibold text-secondary-900 mb-6">Withdrawal Information</h2>
+          <div className="mb-4">
+            <div className="inline-flex rounded-xl overflow-hidden border border-secondary-200">
+              <button className={`px-4 py-2 ${withdrawalInfo.method==='bank'?'bg-primary-600 text-white':'bg-white'}`} onClick={()=>setWithdrawalInfo({...withdrawalInfo, method:'bank'})}>Bank Account</button>
+              <button className={`px-4 py-2 ${withdrawalInfo.method==='momo'?'bg-primary-600 text-white':'bg-white'}`} onClick={()=>setWithdrawalInfo({...withdrawalInfo, method:'momo'})}>Mobile Money</button>
+            </div>
+          </div>
+          {withdrawalInfo.method === 'bank' ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <input className="px-4 py-3 border border-secondary-200 rounded-xl" placeholder="Account Name" value={withdrawalInfo.bankAccountName} onChange={(e)=>setWithdrawalInfo({...withdrawalInfo, bankAccountName: e.target.value})} />
+              <input className="px-4 py-3 border border-secondary-200 rounded-xl" placeholder="Account Number" value={withdrawalInfo.bankAccountNumber} onChange={(e)=>setWithdrawalInfo({...withdrawalInfo, bankAccountNumber: e.target.value})} />
+              <input className="px-4 py-3 border border-secondary-200 rounded-xl" placeholder="Bank Code" value={withdrawalInfo.bankCode} onChange={(e)=>setWithdrawalInfo({...withdrawalInfo, bankCode: e.target.value})} />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <select className="px-4 py-3 border border-secondary-200 rounded-xl" value={withdrawalInfo.momoProvider} onChange={(e)=>setWithdrawalInfo({...withdrawalInfo, momoProvider: e.target.value})}>
+                <option value="">Select Provider</option>
+                <option value="MTN">MTN Mobile Money</option>
+                <option value="Zain">Zain</option>
+              </select>
+              <input className="px-4 py-3 border border-secondary-200 rounded-xl" placeholder="Mobile Money Number" value={withdrawalInfo.momoNumber} onChange={(e)=>setWithdrawalInfo({...withdrawalInfo, momoNumber: e.target.value})} />
+            </div>
+          )}
         </Card>
 
         {/* Current Status */}
