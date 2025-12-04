@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 import LoadingSpinner from '../components/LoadingSpinner';
+import logoSvg from '@/assets/logo-ssd.svg';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -30,10 +31,9 @@ const Login = () => {
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-blue-50 flex items-center justify-center px-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8 animate-fade-in-up">
-          <Link to="/" className="inline-block">
-            <div className="text-4xl font-bold text-primary-600">
-              Pay<span className="text-secondary-900">ssd</span>
-            </div>
+          <Link to="/" className="inline-flex items-center gap-2 justify-center">
+            <img src={logoSvg} alt="PaySSD" className="h-6 w-6 rounded-lg" />
+            <span className="text-2xl font-bold text-secondary-900">PaySSD</span>
           </Link>
           <h2 className="mt-6 text-3xl font-bold text-secondary-900">Welcome Back</h2>
           <p className="mt-2 text-secondary-600">Sign in to your account</p>

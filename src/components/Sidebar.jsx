@@ -13,6 +13,7 @@ import {
   User
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import logoSvg from '@/assets/logo-ssd.svg';
 
 const Sidebar = ({ onSignOut }) => {
   const location = useLocation();
@@ -51,11 +52,9 @@ const Sidebar = ({ onSignOut }) => {
       {/* Logo */}
       <div className="p-6 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center">
-            <span className="text-2xl">💳</span>
-          </div>
+          <img src={logoSvg} alt="PaySSD" className="h-6 w-6 rounded-lg shadow-inner" />
           <div>
-            <div className="text-xl font-bold">Payssd</div>
+            <div className="text-xl font-bold">PaySSD</div>
             <div className="text-xs text-white/70">Payment Gateway</div>
           </div>
         </div>

@@ -13,6 +13,7 @@ import {
   X
 } from 'lucide-react';
 import { supabase } from '@/supabase/supabaseClient';
+import logoSvg from '@/assets/logo-ssd.svg';
 
 const AdminLayout = ({ children, activePage }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -167,6 +168,3 @@ const AdminLayout = ({ children, activePage }) => {
 };
 
 export default AdminLayout;
-
-
-import logoSvg from '@/assets/logo-ssd.svg'

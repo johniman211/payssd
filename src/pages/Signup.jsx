@@ -4,6 +4,7 @@ import { Mail, Lock, Phone, User, Building, CheckCircle } from 'lucide-react';
 import { supabase } from '../supabase/supabaseClient';
 import Button from '../components/Button';
 import Card from '../components/Card';
+import logoSvg from '@/assets/logo-ssd.svg';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -81,11 +82,9 @@ const Signup = () => {
         <div className="w-full max-w-4xl">
           {/* Header */}
           <div className="text-center mb-12">
-            <a href="/" className="inline-flex items-center gap-2 mb-6">
-              <div className="w-12 h-12 bg-gradient-to-br from-primary-600 to-primary-700 rounded-xl flex items-center justify-center">
-                <span className="text-2xl">💳</span>
-              </div>
-              <span className="text-2xl font-bold text-secondary-900">Payssd</span>
+            <a href="/" className="inline-flex items-center gap-2 mb-6 justify-center">
+              <img src={logoSvg} alt="PaySSD" className="h-6 w-6 rounded-lg" />
+              <span className="text-2xl font-bold text-secondary-900">PaySSD</span>
             </a>
             <h1 className="text-4xl font-bold text-secondary-900 mb-3">
               Choose Your Account Type
@@ -197,11 +196,9 @@ const Signup = () => {
         <Card className="w-full max-w-md shadow-2xl">
           {/* Header */}
           <div className="text-center mb-8">
-            <a href="/" className="inline-flex items-center gap-2 mb-6">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-700 rounded-xl flex items-center justify-center">
-                <span className="text-xl">💳</span>
-              </div>
-              <span className="text-xl font-bold text-secondary-900">Payssd</span>
+            <a href="/" className="inline-flex items-center gap-2 mb-6 justify-center">
+              <img src={logoSvg} alt="PaySSD" className="h-6 w-6 rounded-lg" />
+              <span className="text-xl font-bold text-secondary-900">PaySSD</span>
             </a>
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary-50 rounded-full mb-4">
               {accountType === 'personal' ? (
