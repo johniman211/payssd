@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+
+# Environment files (do not commit secrets)
+.env
+.env.*
+
+# Supabase local config
+supabase/.temp/
+supabase/.cache/
+
+# IDE / OS
+.vscode/
+.idea/
+Thumbs.db
