@@ -50,18 +50,23 @@ const Signup = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('signup', {
-        body: {
-          email: formData.email,
-          password: formData.password,
-          business: {
-            business_type: accountType === 'business' ? 'business' : 'personal',
-            contact_name: `${formData.firstName} ${formData.lastName}`,
-            contact_phone: formData.phone
+      let invokeOk = false;
+      try {
+        const { data, error } = await supabase.functions.invoke('signup', {
+          body: {
+            email: formData.email,
+            password: formData.password,
+            business: {
+              business_type: accountType === 'business' ? 'business' : 'personal',
+              contact_name: `${formData.firstName} ${formData.lastName}`,
+              contact_phone: formData.phone
+            }
           }
-        }
-      })
-      if (error || !data?.ok) throw new Error(error?.message || 'Signup failed')
+        })
+        invokeOk = !!data?.ok && !error
+      } catch (fnErr) {
+        console.warn('Signup function returned non-2xx, continuing if auth works:', fnErr)
+      }
 
       const { error: signInError } = await supabase.auth.signInWithPassword({ email: formData.email, password: formData.password })
       if (signInError) throw signInError

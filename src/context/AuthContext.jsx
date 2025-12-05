@@ -61,6 +61,17 @@ export const AuthProvider = ({ children }) => {
           if (merchantProfile) {
             setProfile(merchantProfile);
             setUserType('merchant');
+          } else {
+            try {
+              const { data } = await supabase.functions.invoke('ensure-merchant-profile', { body: { user_id: currentUser.id, email: currentUser.email, account_type: 'personal' } })
+              if (data?.ok) {
+                const createdProfile = await getMerchantProfile();
+                if (createdProfile) {
+                  setProfile(createdProfile);
+                  setUserType('merchant');
+                }
+              }
+            } catch {}
           }
         } catch (error) {
           console.error('Error loading profile:', error);
