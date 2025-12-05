@@ -56,40 +56,34 @@ const Verification = () => {
     }
   }, [profile?.verification_status, refreshProfile]);
 
-  // Also refresh when component mounts or when status might have changed
-  useEffect(() => {
-    const refreshInterval = setInterval(async () => {
-      if (refreshProfile) {
-        await refreshProfile();
-      }
-    }, 10000); // Refresh every 10 seconds
+  // Remove aggressive auto-refresh to prevent clearing form inputs while editing
 
-    return () => clearInterval(refreshInterval);
-  }, [refreshProfile]);
-
+  const [initializedFromProfile, setInitializedFromProfile] = useState(false);
   useEffect(() => {
-    setPersonalInfo({
-      fullName: `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(),
-      dob: '',
-      gender: '',
-      nationality: 'South Sudan',
-      phone: profile?.phone || '',
-      email: profile?.email || ''
-    });
-    setBusinessInfo({
-      businessName: profile?.business_name || '',
-      businessType: profile?.business_type || '',
-      registrationNumber: profile?.business_registration_number || '',
-      taxId: profile?.tax_id || '',
-      businessAddress: profile?.business_address || ''
-    });
-    setWithdrawalInfo((w) => ({
-      ...w,
-      bankAccountName: profile?.account_name || '',
-      bankAccountNumber: profile?.account_number || '',
-      bankCode: profile?.bank_name || ''
-    }));
-  }, [profile]);
+    if (!initializedFromProfile && profile) {
+      setPersonalInfo((prev) => ({
+        ...prev,
+        fullName: `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(),
+        phone: profile?.phone || prev.phone,
+        email: profile?.email || prev.email,
+      }));
+      setBusinessInfo((prev) => ({
+        ...prev,
+        businessName: profile?.business_name || prev.businessName,
+        businessType: profile?.business_type || prev.businessType,
+        registrationNumber: profile?.business_registration_number || prev.registrationNumber,
+        taxId: profile?.tax_id || prev.taxId,
+        businessAddress: profile?.business_address || prev.businessAddress,
+      }));
+      setWithdrawalInfo((prev) => ({
+        ...prev,
+        bankAccountName: profile?.account_name || prev.bankAccountName,
+        bankAccountNumber: profile?.account_number || prev.bankAccountNumber,
+        bankCode: profile?.bank_name || prev.bankCode,
+      }));
+      setInitializedFromProfile(true);
+    }
+  }, [profile, initializedFromProfile]);
 
   const requiredDocuments = [
     { id: 'national_id', name: 'National ID or Passport', required: true },
