@@ -362,7 +362,7 @@ const LandingPage = () => {
             </div>
           </div>
           <div className="border-t border-secondary-800 pt-8 text-center text-secondary-400">
-            <p>&copy; 2024 Payssd. All rights reserved. Made with ❤️ in South Sudan 🇸🇸</p>
+            <p>&copy; 2025 Payssd. All rights reserved. Made with ❤️ in South Sudan 🇸🇸</p>
           </div>
         </div>
       </footer>
