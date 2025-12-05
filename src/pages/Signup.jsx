@@ -71,6 +71,41 @@ const Signup = () => {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email: formData.email, password: formData.password })
       if (signInError) throw signInError
 
+      // Ensure merchant profile exists immediately after signup
+      try {
+        const { data: userInfo } = await supabase.auth.getUser()
+        const uid = userInfo?.user?.id
+        const emailLower = (formData.email || '').toLowerCase()
+        if (uid) {
+          const { data: existing } = await supabase
+            .from('merchants')
+            .select('id')
+            .eq('user_id', uid)
+            .maybeSingle()
+          if (!existing) {
+            const { data: inserted } = await supabase
+              .from('merchants')
+              .insert([{
+                user_id: uid,
+                email: emailLower,
+                account_type: accountType === 'business' ? 'business' : 'personal',
+                first_name: formData.firstName || '',
+                last_name: formData.lastName || '',
+                phone: formData.phone || '',
+                verification_status: 'pending',
+                balance: 0.00
+              }])
+              .select('id')
+              .single()
+            if (inserted?.id) {
+              try {
+                await supabase.rpc('generate_api_keys', { p_merchant_id: inserted.id, p_key_type: 'sandbox' })
+              } catch {}
+            }
+          }
+        }
+      } catch {}
+
       setStep('verify');
     } catch (error) {
       console.error('Signup error:', error);
