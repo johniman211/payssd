@@ -1,5 +1,5 @@
 import React from 'react'
-import logoSvg from '@/assets/logo.svg'
+import logoSvg from '@/assets/logo-ssd.svg'
 
 const Privacy = () => {
   return (
@@ -16,37 +16,37 @@ const Privacy = () => {
 
       <main className="pt-24 pb-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
-          <h1 className="text-4xl font-bold text-secondary-900 tracking-tight">Privacy Policy</h1>
-          <p className="text-secondary-700">This Privacy Policy explains how we collect, use, disclose, and safeguard information when you use Payssd’s services. We are committed to protecting your privacy and handling data in accordance with applicable laws and industry standards.</p>
+          <h1 className="text-3xl font-bold text-secondary-900 tracking-tight">Privacy Policy</h1>
+          <p className="text-secondary-600">Effective Date: 2025-12-05</p>
 
           <section className="space-y-3">
             <h2 className="text-2xl font-semibold text-secondary-900">Information We Collect</h2>
             <ul className="list-disc ml-6 text-secondary-700 space-y-2">
-              <li>Account data: name, business details, email, phone, and addresses.</li>
-              <li>Payment data: transaction metadata, amounts, currency, references, and payment instrument tokens.</li>
-              <li>Verification data: identity and business documents provided for compliance.</li>
-              <li>Technical data: device information, IP address, logs, cookies, and analytics.</li>
+              <li>Personal: full name, email, phone, national ID, DOB, address</li>
+              <li>Business: business name/type, registration docs, tax ID, bank/mobile money accounts</li>
+              <li>Technical & Usage: IP, browser, device, logs, API usage</li>
+              <li>Financial: transactions, payment methods, settlement history</li>
             </ul>
           </section>
 
           <section className="space-y-3">
             <h2 className="text-2xl font-semibold text-secondary-900">How We Use Information</h2>
             <ul className="list-disc ml-6 text-secondary-700 space-y-2">
-              <li>Provide and operate payments, checkouts, payouts, and merchant tools.</li>
-              <li>Maintain security, prevent fraud, and comply with AML/KYC requirements.</li>
-              <li>Support customers, send service notifications, and improve our products.</li>
-              <li>Meet legal and regulatory obligations, including record keeping.</li>
+              <li>Provide merchant services and process transactions</li>
+              <li>Verify identity (KYC) and prevent fraud (AML)</li>
+              <li>Send notifications and improve platform performance</li>
+              <li>Comply with legal obligations</li>
             </ul>
           </section>
 
           <section className="space-y-3">
             <h2 className="text-2xl font-semibold text-secondary-900">Data Sharing</h2>
-            <p className="text-secondary-700">We share data with service providers and financial partners only as necessary to deliver our services, protect users, and meet compliance obligations. We do not sell personal data.</p>
+            <p className="text-secondary-700">We share data only with payment processors, verification partners, law enforcement when required, and service providers. We never sell personal data.</p>
           </section>
 
           <section className="space-y-3">
             <h2 className="text-2xl font-semibold text-secondary-900">Data Retention</h2>
-            <p className="text-secondary-700">We retain data for the duration needed to provide services and as required by law or regulation. When no longer required, we securely delete or anonymize data.</p>
+            <p className="text-secondary-700">We keep records for legal compliance, auditing, and fraud prevention. You may request deletion for non‑transactional data where permitted.</p>
           </section>
 
           <section className="space-y-3">

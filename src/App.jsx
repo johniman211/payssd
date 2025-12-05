@@ -18,6 +18,9 @@ import ApiKeys from './pages/ApiKeys';
 import ApiDocs from './pages/ApiDocs';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
+import Refund from './pages/Refund';
+import KycAml from './pages/KycAml';
+import Cookies from './pages/Cookies';
 import Security from './pages/Security';
 import About from './pages/About';
 import Contact from './pages/Contact';
@@ -95,6 +98,9 @@ function App() {
           <Route path="/api-docs" element={<ApiDocs />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
+          <Route path="/refunds" element={<Refund />} />
+          <Route path="/kyc-aml" element={<KycAml />} />
+          <Route path="/cookies" element={<Cookies />} />
           <Route path="/security" element={<Security />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />

@@ -355,6 +355,9 @@ const LandingPage = () => {
                 <li><a href="/privacy" className="hover:text-white transition-colors">Privacy</a></li>
                 <li><a href="/terms" className="hover:text-white transition-colors">Terms</a></li>
                 <li><a href="/security" className="hover:text-white transition-colors">Security</a></li>
+                <li><a href="/refunds" className="hover:text-white transition-colors">Refund & Dispute</a></li>
+                <li><a href="/kyc-aml" className="hover:text-white transition-colors">KYC / AML</a></li>
+                <li><a href="/cookies" className="hover:text-white transition-colors">Cookie Policy</a></li>
               </ul>
             </div>
           </div>
